@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: PageProps<'/admin/events/[id]'>) {
   const { id } = await params;
   const event = await getEvent(id);
-  return { title: event ? `Settings — ${event.name}` : 'Event settings' };
+  return { title: event ? `Settings — ${event.name}` : 'Settings' };
 }
 
 export default async function EventSettingsPage({ params }: PageProps<'/admin/events/[id]'>) {

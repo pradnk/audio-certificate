@@ -207,7 +207,7 @@ export function StudentsClient({
             href={`/admin/events/${event.id}`}
             className="font-bold text-teal-900 underline underline-offset-4"
           >
-            Event settings
+            Settings
           </Link>
           .
         </p>

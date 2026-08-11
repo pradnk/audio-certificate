@@ -49,7 +49,7 @@ export function CreateEventForm({
       {!isFirstEvent && (
         <p className="text-ink-soft">
           The wording, voice and language from your last event will be carried over. You can change
-          any of it in Event settings afterwards.
+          any of it in Settings afterwards.
         </p>
       )}
 

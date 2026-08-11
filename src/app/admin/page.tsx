@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
+import { PeopleIcon, SettingsIcon } from '@/components/icons';
 import { Card } from '@/components/ui';
 import { listEvents } from '@/lib/data';
 import type { Event } from '@/lib/db/schema';
@@ -89,14 +90,16 @@ function EventRow({ event }: { event: Event }) {
           <div className="flex gap-2">
             <Link
               href={`/admin/events/${event.id}`}
-              className="inline-flex min-h-11 items-center rounded-lg border-2 border-teal-800 px-4 font-bold text-teal-900 hover:bg-teal-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-teal-800 px-4 font-bold text-teal-900 hover:bg-teal-50"
             >
+              <SettingsIcon />
               Settings
             </Link>
             <Link
               href={`/admin/events/${event.id}/students`}
-              className="inline-flex min-h-11 items-center rounded-lg bg-teal-800 px-4 font-bold text-white hover:bg-teal-900"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-teal-800 px-4 font-bold text-white hover:bg-teal-900"
             >
+              <PeopleIcon />
               {archived ? 'View students' : 'Students'}
             </Link>
           </div>
