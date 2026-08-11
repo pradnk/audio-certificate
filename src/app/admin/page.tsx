@@ -1,66 +1,107 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-import { Button, Card, Field, Input } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { listEvents } from '@/lib/data';
-import { createEvent } from './actions';
+import type { Event } from '@/lib/db/schema';
+import { CreateEventForm } from './create-event-form';
 
 export const metadata: Metadata = { title: 'Events' };
 export const dynamic = 'force-dynamic';
 
 export default async function AdminHomePage() {
   const events = await listEvents();
+  const active = events.filter((event) => !event.archivedAt);
+  const completed = events.filter((event) => event.archivedAt);
+  // The most recent event seeds the next one, so the same organisation does not
+  // retype its name and wording every year.
+  const previous = events.at(-1);
 
   return (
     <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
       <h1 className="mb-8 text-3xl font-bold">Events</h1>
 
-      {events.length > 0 && (
-        <ul className="mb-10 flex flex-col gap-3">
-          {events.map((event) => (
-            <li key={event.id}>
-              <Card className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-bold">{event.name}</h2>
-                  <p className="text-ink-soft">{event.orgName}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/admin/events/${event.id}`}
-                    className="inline-flex min-h-11 items-center rounded-lg border-2 border-teal-800 px-4 font-bold text-teal-900 hover:bg-teal-50"
-                  >
-                    Settings
-                  </Link>
-                  <Link
-                    href={`/admin/events/${event.id}/students`}
-                    className="inline-flex min-h-11 items-center rounded-lg bg-teal-800 px-4 font-bold text-white hover:bg-teal-900"
-                  >
-                    Students
-                  </Link>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+      {active.length > 0 && (
+        <section aria-labelledby="active-heading" className="mb-10">
+          <h2 id="active-heading" className="sr-only-focusable">
+            Events in progress
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {active.map((event) => (
+              <EventRow key={event.id} event={event} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {completed.length > 0 && (
+        <section aria-labelledby="completed-heading" className="mb-10">
+          <h2 id="completed-heading" className="mb-3 text-xl font-bold text-ink-soft">
+            Completed
+          </h2>
+          <p className="mb-3 text-ink-soft">
+            These are locked against changes. Their certificate links still work exactly as before.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {completed.map((event) => (
+              <EventRow key={event.id} event={event} />
+            ))}
+          </ul>
+        </section>
       )}
 
       <Card>
-        <h2 className="mb-4 text-xl font-bold">Start a new event</h2>
-        <form action={createEvent} className="flex flex-col gap-4">
-          <Field
-            id="event-name"
-            label="Event name"
-            hint="This is spoken at the start of every certificate, so write it the way you would say it aloud."
-          >
-            {(props) => (
-              <Input {...props} name="name" required placeholder="Curious Minds 2026" />
-            )}
-          </Field>
-          <Button type="submit" className="self-start">
-            Create event
-          </Button>
-        </form>
+        <h2 className="mb-5 text-xl font-bold">Start a new event</h2>
+        <CreateEventForm
+          suggestedOrgName={previous?.orgName ?? ''}
+          isFirstEvent={events.length === 0}
+        />
       </Card>
     </main>
+  );
+}
+
+function EventRow({ event }: { event: Event }) {
+  const archived = Boolean(event.archivedAt);
+
+  return (
+    <li>
+      <Card className={archived ? 'border-line bg-paper-sunk' : undefined}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-4">
+            {event.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob URL
+              <img src={event.logoUrl} alt="" className="max-h-10 max-w-20 object-contain" />
+            )}
+            <div>
+              <h3 className="text-xl font-bold">
+                {event.name}
+                {archived && (
+                  <span className="ml-2 rounded bg-line px-2 py-0.5 align-middle text-sm font-bold text-ink-soft">
+                    Complete
+                  </span>
+                )}
+              </h3>
+              <p className="text-ink-soft">{event.orgName}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Link
+              href={`/admin/events/${event.id}`}
+              className="inline-flex min-h-11 items-center rounded-lg border-2 border-teal-800 px-4 font-bold text-teal-900 hover:bg-teal-50"
+            >
+              Settings
+            </Link>
+            <Link
+              href={`/admin/events/${event.id}/students`}
+              className="inline-flex min-h-11 items-center rounded-lg bg-teal-800 px-4 font-bold text-white hover:bg-teal-900"
+            >
+              {archived ? 'View students' : 'Students'}
+            </Link>
+          </div>
+        </div>
+      </Card>
+    </li>
   );
 }

@@ -8,6 +8,20 @@
       "when": 1786435997931,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786461060612,
+      "tag": "0001_logo_and_archive",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786466954482,
+      "tag": "0002_generic_org_name",
+      "breakpoints": true
     }
   ]
 }

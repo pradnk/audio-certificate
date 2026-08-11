@@ -1,14 +1,25 @@
-# Audio Certificates — Vividha Trust
+# Taali — certificates that speak
 
-Certificates that speak, built for **Curious Minds**, the National STEM Challenge
-for students with visual impairment and their teachers, presented by
-[Vividha Trust](https://vividhatrust.org).
+*Taali* (ताली) means applause.
 
-A paper certificate is something a blind student cannot appreciate on their own.
-This makes the certificate itself an experience: a ~45-second recording that
-names the student, says what they exhibited and announces their prize — set
-against real applause, so they hear the moment of recognition rather than being
-told about it afterwards.
+A paper certificate is something a visually impaired awardee cannot appreciate on
+their own. Taali makes the certificate itself the experience: a ~45-second
+recording that names the person, says what they did and announces their award,
+set against real applause — so being recognised is something they hear, not
+something they are told about afterwards.
+
+Built first for **Curious Minds**, the National STEM Challenge for students with
+visual impairment and their teachers, presented by
+[Vividha Trust](https://vividhatrust.org) — but nothing in it is specific to
+them. Every organisation-facing detail (name, logo, wording, voice, language)
+lives on the event, so any organisation running any awards can use it. The only
+branding on a certificate is the presenting organisation's.
+
+> **Taali brands the tool, never the certificate.** The mark and name appear on
+> the landing page, sign-in and admin screens. They appear nowhere under `/c` —
+> not in the page, not in the title, not in the meta description. A certificate
+> belongs to its recipient and to the organisation presenting it; the only logo it
+> ever carries is theirs. See `src/components/taali-mark.tsx`.
 
 Each certificate produces three things:
 
@@ -27,15 +38,15 @@ adjust the feel of the piece by editing the numbers in `TIMING`.
 
 | | |
 |---|---|
-| 0.0 s | Signature chime — the same three notes on every Vividha certificate |
+| 0.0 s | Signature chime — the same three notes on every Taali certificate |
 | 0.5 s | Hall ambience fades in at −26 dB and runs underneath throughout |
-| 2.4 s | **"Curious Minds 2026. A National STEM Challenge for students with visual impairment and their teachers, presented by Vividha Trust."** |
+| 2.4 s | **"Annual Science Awards 2026, presented by the Example Trust."** — your wording, from Event settings |
 | ~10 s | **"This certificate is awarded to"** — no full stop, so it leads into the name |
 | ~12.5 s | *silence* → **THE NAME**, alone, slowed to 0.9× → *silence* |
-| ~14.6 s | **"…from ACTS Secondary School, Bengaluru — for their exhibit, 'Talking Thermometer'…"** |
+| ~14.6 s | **"…from Lakeside School, Bengaluru — for the Talking Thermometer…"** |
 | ~23 s | Riser swells → **"First Prize."** lands inside its tail |
 | ~26 s | **Applause**, surging, with the room to itself for 4.2 s |
-| ~30 s | **"Congratulations. Keep asking questions, keep being curious."** over ducked applause |
+| ~30 s | **"Congratulations, and very well done."** over ducked applause |
 | ~36 s | Applause swells back, fades out |
 
 Three decisions do most of the work:
@@ -96,13 +107,18 @@ cp .env.example .env.local
 | `ELEVENLABS_API_KEY` | [elevenlabs.io](https://elevenlabs.io) → Profile → API Keys |
 | `BLOB_READ_WRITE_TOKEN` | Vercel → Storage → Create Blob store (local development only) |
 
-### 3. Add an Indian English voice
+### 3. Add a voice with the right accent
 
-ElevenLabs accounts start with only American, British and Australian voices,
-none of which put the stress in the right place on Indian names. Open the
-[Voice Library](https://elevenlabs.io/app/voice-library?accent=indian), find an
-Indian English voice and click **Add**. Event settings will warn you until you
-do, and picks the closest available voice (British) in the meantime.
+ElevenLabs accounts start with only American, British and Australian voices. If
+your awardees' names are not English, none of those will put the stress in the
+right place. Open the
+[Voice Library](https://elevenlabs.io/app/voice-library), find a voice with an
+accent that matches the people being named, and click **Add**.
+
+For an Indian event, [filter by Indian
+accent](https://elevenlabs.io/app/voice-library?accent=indian) — Event settings
+warns you until an Indian voice is present, and falls back to the closest
+available (British) in the meantime.
 
 > **This needs a paid ElevenLabs plan.** Free accounts can add Voice Library
 > voices in the web app but cannot use them *over the API* — synthesis fails
@@ -132,8 +148,8 @@ URL rotates.
 
 ## Using it
 
-1. **Create an event** and open **Event settings** — pick a voice, and check the
-   wording.
+1. **Create an event** and open **Event settings** — add your logo, pick a
+   voice, and check the wording.
 2. **Add students.** Paste a block of cells straight from Excel or Google
    Sheets, upload a CSV, or type them one at a time. Only *Name* and *Award* are
    required.
@@ -147,9 +163,36 @@ URL rotates.
    ZIP** for the MP3s, and **Print all certificates** for one PDF of the whole
    event, one per page.
 
+### The logo
+
+Upload a PNG, JPEG, WebP or SVG when creating an event, or any time afterwards
+in Event settings, and choose which corner it sits in. The same setting drives
+both the printed certificate and the web page — a printed sheet has four real
+corners, and a web page honours "top"/"bottom" as its header and footer bands
+with "left"/"right" choosing the side.
+
+The logo is marked decorative (`alt=""`) on purpose. The organisation's name is
+printed as text right beside it, so a text alternative would only make a screen
+reader announce the name twice.
+
+### Finishing an event
+
+When the ceremony is over and the certificates are sent, open Event settings and
+**Mark event as complete**. The event moves to a "Completed" section on the
+events list and is locked: no students can be added, no certificates remade or
+removed. Downloading audio, copying links and printing all still work, since
+that is what people come back to a finished event for.
+
+The lock is enforced on the server, not just by disabling buttons — a browser
+tab left open since the day of the ceremony cannot quietly change a finished
+event months later. **Certificate links are never affected.** A family handed a
+link keeps it working forever; archiving closes the admin side only.
+
+Reopen the event at any time from the same place.
+
 ### Languages
 
-Each student has their own language. The voice engine works out which language
+Each recipient has their own language. The voice engine works out which language
 to speak from the words themselves, so **each language needs its own wording**,
 written in Event settings. English and Hindi ship with defaults; the Hindi is a
 starting draft and the app says so. Other languages start empty on purpose —
@@ -165,7 +208,7 @@ silence around the name instead.
 ### Cost
 
 About **$5/month**: Vercel Hobby, Neon and Blob free tiers, plus an ElevenLabs
-Starter plan. The event intro and closing are identical for every student, so
+Starter plan. The event intro and closing are identical for every recipient, so
 they are synthesised once per event rather than once per certificate, and every
 clip is cached by content — re-running a failed batch re-bills nothing that
 already succeeded.
@@ -220,9 +263,9 @@ npm run typecheck && npm run lint && npm run build
 The certificate page is the product, so a few choices there are deliberate and
 worth not "fixing":
 
-- **It does not autoplay.** A blind visitor's screen reader begins announcing
-  the page on load; audio starting on top of that talks over the very thing
-  telling them whose certificate it is.
+- **It does not autoplay.** A visually impaired visitor's screen reader begins
+  announcing the page on load; audio starting on top of that talks over the very
+  thing telling them whose certificate it is.
 - **It does not steal focus.** Moving focus to the play button on mount means a
   screen reader user hears "Play, button" before they hear the name. The button
   is one Tab away instead.
@@ -241,8 +284,8 @@ worth not "fixing":
 ## Not included
 
 - **No server-generated PDF.** Printing is done from the browser instead. A PDF
-  toolkit needs every script's font registered up front, and a student whose
-  name is written in Kannada or Tamil would come out as a row of empty boxes.
+  toolkit needs every script's font registered up front, and a name
+  written in Kannada or Tamil would come out as a row of empty boxes.
   The browser already shapes those scripts correctly.
 - **No per-certificate PNG** for image sharing. The MP3 is the artefact that
   matters on WhatsApp.
@@ -251,14 +294,22 @@ worth not "fixing":
   every failed attempt, plus a passphrase-length passcode. Move to Vercel KV if
   the site ever becomes a target.
 
+- **The admin vocabulary assumes an education setting.** Recipients are called
+  *students*, with *School* and *Class* fields. Nothing enforces it — the fields
+  are optional and free text, so "School" happily holds a company or a chapter
+  name — but the labels do say student. If a future deployment needs neutral
+  wording, the labels live in `src/app/admin/events/[id]/students/add-students.tsx`
+  and `students-client.tsx`; the database columns would not have to change.
+
 ## Layout
 
 ```
 src/lib/audio/     score.ts (the timeline), mix.ts (the audio graph),
                    loudness.ts (BS.1770), encode.worker.ts (MP3, off-thread)
-src/lib/script.ts  turns event wording + one student into the spoken clips
+src/lib/script.ts  turns event wording + one recipient into the spoken clips
 src/lib/languages.ts  language list, per-language wording, engine selection
+src/lib/logo.ts    logo positions, shared by the web page and the print sheet
 src/app/c/         the public certificate page and its printable version
 src/app/admin/     events, students, batch generation
-scripts/           asset generator and the verification render
+scripts/           asset generator and the verification renders
 ```

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { TaaliLogo } from '@/components/taali-mark';
 import { Card } from '@/components/ui';
 import { LoginForm } from './login-form';
 
@@ -12,9 +13,11 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
 
   return (
     <main id="main" className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center p-6">
-      <h1 className="mb-2 text-3xl font-bold">Audio Certificates</h1>
+      <h1 className="mb-3 text-4xl">
+        <TaaliLogo markClassName="size-11" showTagline />
+      </h1>
       <p className="mb-8 text-ink-soft">
-        Certificates that speak, for the Curious Minds National STEM Challenge.
+        Sign in to make certificates for your event.
       </p>
       <Card>
         <LoginForm next={next} />

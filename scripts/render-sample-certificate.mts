@@ -169,6 +169,27 @@ console.log(`  applause under speech ${ducked.toFixed(1)} dB`);
 console.log(
   `  pushed down by       ${(unducked - ducked).toFixed(1)} dB  (score asks for ${-TIMING.duckDb} dB)`,
 );
+/*
+ * That measured figure under-reports, and by a knowable amount. A beds-only
+ * render has no speech in it, so loudness normalisation applies a large makeup
+ * gain and drives the loud applause into the soft limiter while the ducked
+ * section stays below the knee -- squashing the loud half and narrowing the
+ * apparent gap. The gain applied is printed so the discrepancy is legible
+ * rather than mysterious.
+ */
+console.log(
+  `  (beds-only render was lifted ${bedsOnly.appliedGainDb.toFixed(1)} dB and peaks at ` +
+    `${(20 * Math.log10(bedsOnly.peak)).toFixed(1)} dBFS, so the limiter compresses the loud half)`,
+);
+
+/*
+ * The number that actually decides whether the closing line is intelligible:
+ * how far the speech sits above the crowd underneath it.
+ */
+const speechOverBed =
+  rms(closing.at + 0.6, closing.at + closing.duration - 0.3) -
+  bedRms(closing.at + 0.6, closing.at + closing.duration - 0.3);
+console.log(`\n  speech sits ${speechOverBed.toFixed(1)} dB above the crowd during the closing line`);
 console.log(
   `  swells back after    ${bedRms(closing.at + closing.duration + 0.9, closing.at + closing.duration + 1.8).toFixed(1)} dB`,
 );

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { TaaliLogo } from '@/components/taali-mark';
+
 /**
  * The bare domain. Anyone arriving here is either a team member on their way to
  * sign in, or someone who was sent a certificate link and dropped the last part
@@ -8,10 +10,17 @@ import Link from 'next/link';
 export default function HomePage() {
   return (
     <main id="main" className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-16">
-      <h1 className="text-4xl font-bold">Audio Certificates</h1>
-      <p className="mt-4 text-xl leading-relaxed">
-        Certificates that speak, made for the Curious Minds National STEM Challenge — a challenge
-        for students with visual impairment and their teachers, presented by Vividha Trust.
+      <h1 className="text-5xl">
+        <TaaliLogo markClassName="size-14" showTagline />
+      </h1>
+      <p className="mt-6 text-xl leading-relaxed">
+        A certificate you can hear. Your name read aloud, your award announced, and the applause
+        that came with it — so being recognised is something you experience, not something you are
+        told about afterwards.
+      </p>
+      <p className="mt-6 text-lg leading-relaxed text-ink-soft">
+        Built for awards given to people who are visually impaired, and for any organisation that
+        would rather hand someone a moment than a piece of paper.
       </p>
       <p className="mt-6 text-lg text-ink-soft">
         If someone sent you a certificate, open the full link they gave you. It will read the

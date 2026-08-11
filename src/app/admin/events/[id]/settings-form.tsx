@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { updateEvent, type EventSettings } from '@/app/admin/actions';
+import { setEventArchived, updateEvent, type EventSettings } from '@/app/admin/actions';
+import { LogoPicker } from '@/components/logo-picker';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import type { Event, TemplateSet } from '@/lib/db/schema';
 import type { ElevenLabsVoice } from '@/lib/elevenlabs';
@@ -149,8 +150,12 @@ export function SettingsForm({
     voiceId: event.voiceId,
     modelId: event.modelId,
     defaultLanguage: event.defaultLanguage,
+    logoUrl: event.logoUrl,
+    logoPosition: event.logoPosition,
     templates: event.templates,
   });
+
+  const archived = Boolean(event.archivedAt);
 
   const [activeLanguage, setActiveLanguage] = useState(event.defaultLanguage);
   const activeTemplates = settings.templates[activeLanguage] ?? EMPTY_TEMPLATE;
@@ -194,6 +199,20 @@ export function SettingsForm({
   return (
     <div className="flex flex-col gap-8">
       {error && <Alert>{error}</Alert>}
+
+      {archived && (
+        <p className="rounded-lg border-2 border-line bg-paper-sunk px-5 py-4 text-lg">
+          <strong>This event is marked complete.</strong> Its settings and students are locked
+          against changes. The certificate links still work and always will — reopen the event below
+          if you need to change something.
+        </p>
+      )}
+
+      {/* One disabled fieldset rather than a `disabled` prop on twenty
+          controls: it is the native way to switch off a whole form section,
+          browsers apply it to every descendant, and screen readers announce
+          the controls as unavailable without any extra ARIA. */}
+      <fieldset disabled={archived} className="contents">
 
       <Card>
         <h2 className="mb-5 text-xl font-bold">About the event</h2>
@@ -239,6 +258,19 @@ export function SettingsForm({
             )}
           </Field>
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-5 text-xl font-bold">Logo</h2>
+        <LogoPicker
+          logoUrl={settings.logoUrl}
+          logoPosition={settings.logoPosition}
+          disabled={archived}
+          onChange={(next) => {
+            setSettings((current) => ({ ...current, ...next }));
+            setSaved(false);
+          }}
+        />
       </Card>
 
       <Card>
@@ -472,13 +504,87 @@ export function SettingsForm({
       </Card>
 
       <div className="flex items-center gap-4">
-        <Button onClick={save} disabled={pending}>
+        <Button onClick={save} disabled={pending || archived}>
           {pending ? 'Saving…' : 'Save settings'}
         </Button>
         <span aria-live="polite" className="font-bold text-success">
           {saved && 'Saved.'}
         </span>
       </div>
+
+      </fieldset>
+
+      <ArchiveControl event={event} onError={setError} />
     </div>
+  );
+}
+
+/**
+ * Marks an event complete, or reopens it.
+ *
+ * Placed last and styled quietly: it is a housekeeping action taken once, weeks
+ * after the ceremony, not something anyone needs while preparing certificates.
+ */
+function ArchiveControl({
+  event,
+  onError,
+}: {
+  event: Event;
+  onError: (message: string) => void;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const archived = Boolean(event.archivedAt);
+
+  const toggle = () => {
+    if (
+      !archived &&
+      !window.confirm(
+        `Mark ${event.name} as complete?\n\nNo more students can be added and no certificates changed until you reopen it. All existing certificate links keep working.`,
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await setEventArchived(event.id, !archived);
+        router.refresh();
+      } catch (caught) {
+        onError(caught instanceof Error ? caught.message : 'Could not change the event state.');
+      }
+    });
+  };
+
+  return (
+    <Card className="border-line bg-paper-sunk">
+      <h2 className="mb-2 text-xl font-bold">{archived ? 'Reopen this event' : 'Finish up'}</h2>
+      <p className="mb-4 text-ink-soft">
+        {archived ? (
+          <>
+            Marked complete
+            {event.archivedAt && ` on ${new Date(event.archivedAt).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}`}
+            . Reopening lets you add students and remake certificates again.
+          </>
+        ) : (
+          <>
+            Once the ceremony is over and every certificate has been sent out, mark the event
+            complete. It moves out of the main list and is locked against accidental changes.
+            Certificate links are unaffected — families keep them forever.
+          </>
+        )}
+      </p>
+      <Button variant={archived ? 'primary' : 'secondary'} onClick={toggle} disabled={pending}>
+        {pending
+          ? 'Saving…'
+          : archived
+            ? 'Reopen event'
+            : 'Mark event as complete'}
+      </Button>
+    </Card>
   );
 }

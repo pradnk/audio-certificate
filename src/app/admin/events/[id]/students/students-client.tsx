@@ -61,6 +61,13 @@ export function StudentsClient({
 
   const certificateUrl = (row: Certificate) => `${siteUrl}/c/${row.publicId}`;
 
+  /*
+   * A completed event is read-only. Downloading, copying links and printing
+   * stay available -- those are exactly what someone comes back to a finished
+   * event for -- but nothing that would change a certificate does.
+   */
+  const archived = Boolean(event.archivedAt);
+
   const pending = rows.filter((row) => row.status !== 'ready');
   const ready = rows.filter((row) => row.status === 'ready' && row.audioUrl);
 
@@ -191,14 +198,29 @@ export function StudentsClient({
         </p>
       )}
 
-      <AddStudents
-        eventId={event.id}
-        defaultLanguage={event.defaultLanguage}
-        onAdded={(count) => {
-          setNotice(`Added ${count} student${count === 1 ? '' : 's'}.`);
-          router.refresh();
-        }}
-      />
+      {archived ? (
+        <p className="rounded-lg border-2 border-line bg-paper-sunk px-5 py-4 text-lg">
+          <strong>This event is marked complete.</strong> Students and certificates are locked. You
+          can still download the audio, copy the links and print. To make changes, reopen the event
+          in{' '}
+          <Link
+            href={`/admin/events/${event.id}`}
+            className="font-bold text-teal-900 underline underline-offset-4"
+          >
+            Event settings
+          </Link>
+          .
+        </p>
+      ) : (
+        <AddStudents
+          eventId={event.id}
+          defaultLanguage={event.defaultLanguage}
+          onAdded={(count) => {
+            setNotice(`Added ${count} student${count === 1 ? '' : 's'}.`);
+            router.refresh();
+          }}
+        />
+      )}
 
       {rows.length > 0 && (
         <Card>
@@ -207,9 +229,9 @@ export function StudentsClient({
               {rows.length} student{rows.length === 1 ? '' : 's'}
             </h2>
 
-            <NamePreviewAll rows={rows} event={event} onError={setError} />
+            {!archived && <NamePreviewAll rows={rows} event={event} onError={setError} />}
 
-            {batchRunning ? (
+            {archived ? null : batchRunning ? (
               <Button
                 variant="danger"
                 onClick={() => {
@@ -250,7 +272,8 @@ export function StudentsClient({
             onDelete={remove}
             onToggleReviewed={toggleReviewed}
             onError={setError}
-            disabled={batchRunning}
+            disabled={batchRunning || archived}
+            archived={archived}
           />
         </Card>
       )}
@@ -277,6 +300,7 @@ function StudentTable({
   onToggleReviewed,
   onError,
   disabled,
+  archived,
 }: {
   rows: Certificate[];
   event: Event;
@@ -287,6 +311,7 @@ function StudentTable({
   onToggleReviewed: (row: Certificate, reviewed: boolean) => void;
   onError: (message: string) => void;
   disabled: boolean;
+  archived: boolean;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -351,7 +376,7 @@ function StudentTable({
                       type="checkbox"
                       className="size-5"
                       checked={row.reviewed}
-                      disabled={row.status !== 'ready'}
+                      disabled={row.status !== 'ready' || archived}
                       onChange={(changeEvent) =>
                         onToggleReviewed(row, changeEvent.target.checked)
                       }
@@ -364,16 +389,23 @@ function StudentTable({
 
                 <td className="py-3">
                   <div className="flex flex-wrap gap-2">
-                    <NamePreviewButton row={row} event={event} onError={onError} />
-
-                    <Button
-                      variant="secondary"
-                      className="min-h-11 px-3 text-sm"
-                      disabled={disabled || working}
-                      onClick={() => onGenerate(row)}
-                    >
-                      {row.status === 'ready' ? 'Remake' : row.status === 'failed' ? 'Retry' : 'Make'}
-                    </Button>
+                    {!archived && (
+                      <>
+                        <NamePreviewButton row={row} event={event} onError={onError} />
+                        <Button
+                          variant="secondary"
+                          className="min-h-11 px-3 text-sm"
+                          disabled={disabled || working}
+                          onClick={() => onGenerate(row)}
+                        >
+                          {row.status === 'ready'
+                            ? 'Remake'
+                            : row.status === 'failed'
+                              ? 'Retry'
+                              : 'Make'}
+                        </Button>
+                      </>
+                    )}
 
                     {row.status === 'ready' && (
                       <Link
@@ -384,14 +416,16 @@ function StudentTable({
                       </Link>
                     )}
 
-                    <Button
-                      variant="quiet"
-                      className="min-h-11 px-3 text-sm"
-                      disabled={disabled}
-                      onClick={() => onDelete(row)}
-                    >
-                      Remove
-                    </Button>
+                    {!archived && (
+                      <Button
+                        variant="quiet"
+                        className="min-h-11 px-3 text-sm"
+                        disabled={disabled}
+                        onClick={() => onDelete(row)}
+                      >
+                        Remove
+                      </Button>
+                    )}
                   </div>
 
                   {row.status === 'ready' && (

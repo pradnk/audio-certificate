@@ -40,10 +40,46 @@
   border-radius: 4mm;
 }
 
+/*
+ * The logo participates in the header or footer layout rather than being
+ * absolutely positioned in a corner. Absolute placement looked tidier until the
+ * bottom-right case, where it landed squarely on top of the QR code. Laying it
+ * out in the band makes an overlap impossible in any of the four positions.
+ *
+ * Sized by maximums, so a wide wordmark and a square emblem both sit
+ * comfortably and neither is distorted.
+ */
+.certificate-logo {
+  max-width: 42mm;
+  max-height: 18mm;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* `order` decides which side of the band the logo takes. */
+.certificate-band-start .certificate-logo {
+  order: -1;
+}
+
+.certificate-band-end .certificate-logo {
+  order: 10;
+}
+
 .certificate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8mm;
   border-bottom: 1mm solid #0b4f4d;
   padding-bottom: 4mm;
   margin-bottom: 8mm;
+}
+
+.certificate-heading {
+  /* Takes the remaining width so a long event name wraps rather than
+     squeezing the logo. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .certificate-event {

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { getCertificateByPublicId } from '@/lib/data';
 import type { ScriptSnapshot } from '@/lib/db/schema';
 import { certificateFileBase } from '@/lib/filename';
+import { isLeft, isTop } from '@/lib/logo';
 import { CertificatePlayer } from './player';
 
 export async function generateMetadata({ params }: PageProps<'/c/[publicId]'>): Promise<Metadata> {
@@ -14,7 +15,13 @@ export async function generateMetadata({ params }: PageProps<'/c/[publicId]'>): 
 
   const title = `${row.certificate.studentName} — ${row.certificate.award}`;
   return {
-    title,
+    /*
+     * Absolute, so the root layout's "— Taali" suffix is not appended. The
+     * certificate belongs to the student and to the organisation presenting it;
+     * the tool that produced it has no business in the browser tab, the link
+     * preview, or anywhere else on this page.
+     */
+    title: { absolute: `${title} — ${row.event.orgName}` },
     description: `${row.certificate.award} at ${row.event.name}, presented by ${row.event.orgName}. Listen to this certificate.`,
     openGraph: {
       title,
@@ -42,15 +49,36 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
   const snapshot = certificate.scriptSnapshot as ScriptSnapshot | null;
   const audioUrl = certificate.status === 'ready' ? certificate.audioUrl : null;
 
+  /*
+   * A web page has no corners the way an A4 sheet does, so the position setting
+   * maps onto the two bands it does have: top puts the logo in the header,
+   * bottom in the footer, and left/right decides the side within that band.
+   *
+   * alt="" because the organisation's name sits beside it as text; a text
+   * alternative here would only make a screen reader say the name twice.
+   */
+  const logoAtTop = Boolean(event.logoUrl) && isTop(event.logoPosition);
+  const logo = event.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob URL from an untyped host
+    <img src={event.logoUrl} alt="" className="max-h-16 max-w-36 object-contain" />
+  ) : null;
+
   return (
     <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:py-16">
       <article>
-        <header className="mb-8 border-b-4 border-teal-800 pb-6">
-          <p className="text-lg font-bold tracking-wide text-teal-800 uppercase">{event.name}</p>
-          <p className="text-ink-soft">
-            {event.orgName}
-            {event.eventDate && ` · ${event.eventDate}`}
-          </p>
+        <header
+          className={`mb-8 flex items-center gap-5 border-b-4 border-teal-800 pb-6 ${
+            logoAtTop && isLeft(event.logoPosition) ? 'flex-row-reverse justify-end' : ''
+          }`}
+        >
+          <div className="flex-1">
+            <p className="text-lg font-bold tracking-wide text-teal-800 uppercase">{event.name}</p>
+            <p className="text-ink-soft">
+              {event.orgName}
+              {event.eventDate && ` · ${event.eventDate}`}
+            </p>
+          </div>
+          {logoAtTop && logo}
         </header>
 
         <p className="text-xl text-ink-soft">This certificate is awarded to</p>
@@ -124,19 +152,24 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
           </Link>
         </p>
 
-        <footer className="mt-14 border-t-2 border-line pt-6 text-ink-soft">
+        <footer
+          className={`mt-14 flex items-end gap-5 border-t-2 border-line pt-6 text-ink-soft ${
+            !logoAtTop && isLeft(event.logoPosition) ? 'flex-row-reverse justify-end' : ''
+          }`}
+        >
+          <div className="flex-1">
+          {/*
+            * No link to any particular organisation's website here. This page
+            * is rendered for whichever organisation presented the award, so a
+            * hardcoded one would send another charity's families somewhere
+            * else entirely.
+            */}
           <p>
             Presented by {event.orgName}
             {event.venue && ` at ${event.venue}`}.
           </p>
-          <p className="mt-2">
-            <a
-              href="https://vividhatrust.org"
-              className="font-bold text-teal-900 underline underline-offset-4"
-            >
-              vividhatrust.org
-            </a>
-          </p>
+          </div>
+          {!logoAtTop && logo}
         </footer>
       </article>
     </main>

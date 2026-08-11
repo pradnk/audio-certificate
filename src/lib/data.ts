@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { customAlphabet } from 'nanoid';
 
 import { db } from '@/lib/db';
@@ -89,15 +89,34 @@ export async function getCertificateByPublicId(publicId: string) {
   return row;
 }
 
-/** Field values for a brand new event, pre-filled for Curious Minds. */
-export function newEventDefaults(name: string, slug: string, voiceId: string) {
+/**
+ * The event most recently created, if any.
+ *
+ * A new event inherits its organisation name, wording, voice and language from
+ * this one. Almost every deployment runs the same event year after year, so
+ * copying forward is what people expect -- and it means the generic starting
+ * wording is only ever seen once, by whoever sets the tool up.
+ */
+export async function mostRecentEvent(): Promise<Event | undefined> {
+  const [row] = await db().select().from(events).orderBy(desc(events.createdAt)).limit(1);
+  return row;
+}
+
+/** Field values for a new event, seeded from the previous one where there is one. */
+export function newEventDefaults(
+  name: string,
+  slug: string,
+  voiceId: string,
+  previous?: Event,
+  orgName?: string,
+) {
   return {
     name,
     slug,
-    orgName: 'Vividha Trust',
-    templates: { ...DEFAULT_TEMPLATES },
+    orgName: orgName?.trim() || previous?.orgName || '',
+    templates: previous ? { ...previous.templates } : { ...DEFAULT_TEMPLATES },
     voiceId,
-    modelId: MODEL_AUTO,
-    defaultLanguage: 'en-IN',
+    modelId: previous?.modelId ?? MODEL_AUTO,
+    defaultLanguage: previous?.defaultLanguage ?? 'en-IN',
   };
 }

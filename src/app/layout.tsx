@@ -19,11 +19,14 @@ const atkinson = Atkinson_Hyperlegible({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Audio Certificates — Vividha Trust',
-    template: '%s — Vividha Trust',
+    default: 'Taali — certificates that speak',
+    // Applies to the admin side only. Certificate pages set an absolute title
+    // naming the student and the presenting organisation, because a family
+    // opening one should see whose award it is, not which tool produced it.
+    template: '%s — Taali',
   },
   description:
-    'Certificates that speak. Built for the Curious Minds National STEM Challenge for students with visual impairment.',
+    'Taali makes certificates that speak — the award read aloud, with the applause it was given. Built for people who are visually impaired.',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

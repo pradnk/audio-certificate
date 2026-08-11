@@ -11,10 +11,17 @@
  * applause can be tuned by editing numbers rather than by hunting for a
  * different recording.
  *
- * Applause really is just a very large number of short noise transients, so
- * synthesis gets remarkably close. If you would rather use a real recording,
- * drop it into public/audio with the same filename and record its licence in
- * public/audio/CREDITS.md -- nothing else needs to change.
+ * The applause is the part worth understanding before changing anything. It is
+ * not a random scatter of clicks -- that was the first attempt, and it sounds
+ * like rain on a window. It is roughly a hundred people, each clapping
+ * *periodically* at their own tempo, drifting against one another, at different
+ * distances, in a room that smears the whole thing together. Those four
+ * properties are what the ear uses to hear "a crowd" rather than "noise", and
+ * `makeApplause` models each of them explicitly.
+ *
+ * If you would rather use a real recording, drop it into public/audio with the
+ * same filename and record its licence in public/audio/CREDITS.md -- nothing
+ * else needs to change.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -109,6 +116,39 @@ function normalise(buffer, target = 0.9) {
 }
 
 /**
+ * Normalises to a target RMS rather than a target peak, soft-clipping whatever
+ * pokes above the ceiling.
+ *
+ * Applause needs this and the one-shots do not. It is extremely peaky -- a
+ * crest factor near 20 dB -- so normalising it by peak sets its *loudness*
+ * according to whichever single clap happened to land hardest. Change the
+ * synthesis a little, get a taller peak, and the whole bed quietly drops
+ * several decibels underneath the narration even though nothing about the mix
+ * was touched. Fixing the RMS instead keeps the balance against speech stable
+ * across any future tweak to the crowd.
+ */
+function normaliseRms(buffer, targetDb = -17, ceiling = 0.97) {
+  let sum = 0;
+  for (const sample of buffer) sum += sample * sample;
+  const rms = Math.sqrt(sum / buffer.length);
+  if (rms === 0) return buffer;
+
+  const gain = 10 ** (targetDb / 20) / rms;
+  const knee = ceiling * 0.75;
+  for (let i = 0; i < buffer.length; i += 1) {
+    const value = buffer[i] * gain;
+    const magnitude = Math.abs(value);
+    if (magnitude <= knee) {
+      buffer[i] = value;
+    } else {
+      const excess = (magnitude - knee) / (ceiling - knee);
+      buffer[i] = Math.sign(value) * (knee + (ceiling - knee) * Math.tanh(excess));
+    }
+  }
+  return buffer;
+}
+
+/**
  * Turns a longer buffer into a seamlessly looping one of `length` samples by
  * crossfading the overrun back over the start. Without this, looping applause
  * produces an audible click every time it wraps.
@@ -123,93 +163,261 @@ function makeLoopable(buffer, length, fadeSamples) {
   return out;
 }
 
+/** Normally-distributed random, for human timing jitter. */
+function gaussian(random) {
+  const u = Math.max(random(), 1e-9);
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
+}
+
+/**
+ * A feedback delay network reverb: four delay lines cross-mixed through a
+ * Hadamard matrix, each damped by a one-pole lowpass in its feedback path.
+ *
+ * This is the single biggest thing standing between synthesised applause and
+ * the real sound of a hall. Dry claps are just clicks; what makes a crowd sound
+ * like a crowd is a few hundred milliseconds of reflections smearing every clap
+ * into its neighbours. Damping in the feedback path makes high frequencies die
+ * away faster than low ones, which is what air and soft furnishings actually do
+ * and what stops the tail sounding metallic.
+ *
+ * Written in place of convolution with a recorded impulse response: convolving
+ * eleven seconds against a 1.5-second tail is billions of operations, and an FDN
+ * gets somewhere convincing in linear time.
+ */
+function reverb(input, { rt60 = 1.5, damping = 0.34, wet = 0.4, predelayMs = 14 } = {}) {
+  // Mutually prime-ish lengths, so the delay lines never line up and produce a
+  // ringing pitch.
+  const delays = [1657, 2113, 2549, 2971];
+  const lines = delays.map((d) => new Float32Array(d));
+  const cursors = new Array(delays.length).fill(0);
+  const lowpassState = new Array(delays.length).fill(0);
+  // Per-line feedback gain chosen so every line decays over the same RT60.
+  const gains = delays.map((d) => 10 ** ((-3 * d) / (rt60 * SAMPLE_RATE)));
+
+  const predelay = Math.round((predelayMs / 1000) * SAMPLE_RATE);
+  const out = new Float32Array(input.length);
+
+  for (let i = 0; i < input.length; i += 1) {
+    const source = i >= predelay ? input[i - predelay] : 0;
+
+    const read = [0, 0, 0, 0];
+    for (let l = 0; l < 4; l += 1) read[l] = lines[l][cursors[l]];
+
+    // Hadamard: every line feeds every other, which is what builds density.
+    const mixed = [
+      0.5 * (read[0] + read[1] + read[2] + read[3]),
+      0.5 * (read[0] - read[1] + read[2] - read[3]),
+      0.5 * (read[0] + read[1] - read[2] - read[3]),
+      0.5 * (read[0] - read[1] - read[2] + read[3]),
+    ];
+
+    for (let l = 0; l < 4; l += 1) {
+      let value = source + mixed[l] * gains[l];
+      // One-pole lowpass: the tail gets darker as it decays.
+      lowpassState[l] += (value - lowpassState[l]) * (1 - damping);
+      value = lowpassState[l];
+      lines[l][cursors[l]] = value;
+      cursors[l] = (cursors[l] + 1) % lines[l].length;
+    }
+
+    out[i] = input[i] * (1 - wet) + 0.25 * (read[0] + read[1] + read[2] + read[3]) * wet;
+  }
+
+  return out;
+}
+
 // ------------------------------------------------------------------- sounds
 
 /**
- * A single hand clap: a very short, bright noise transient with an instant
- * attack and a fast exponential decay. Individually it sounds like a twig
- * snapping; hundreds per second overlapping is what a crowd sounds like.
+ * A single hand clap.
+ *
+ * Modelled as two things rather than one, because that is what a clap is: a
+ * very short broadband transient as the palms collide, then a brief resonant
+ * "body" as the air cavity trapped between them rings. Cupped hands trap more
+ * air and give a lower, hollower pop; flat hands give a bright crack. Rendering
+ * only the transient -- which is what the first version of this did -- produces
+ * something closer to static than to hands.
+ *
+ * `voice` carries the characteristics of one particular person's hands, so all
+ * of their claps sound like each other and unlike their neighbour's.
  */
-function addClap(buffer, at, gain, brightness, random) {
-  const decay = 0.018 + random() * 0.035;
-  const length = Math.min(seconds(decay * 4), buffer.length - at);
+function addClap(buffer, at, voice, gain, random) {
+  if (at < 0 || at >= buffer.length) return;
+
+  const decay = voice.decay * (0.85 + random() * 0.3);
+  const length = Math.min(seconds(decay * 5), buffer.length - at);
   if (length <= 0) return;
 
   const clap = new Float32Array(length);
+
+  // The body: filtered noise ringing at the cavity resonance.
   for (let i = 0; i < length; i += 1) {
     const t = i / SAMPLE_RATE;
     clap[i] = (random() * 2 - 1) * Math.exp(-t / decay);
   }
-  // Each pair of hands has its own resonance; varying it stops the crowd
-  // sounding like one person cloned many times.
-  biquad(clap, bandpass(brightness, 0.8));
-  biquad(clap, highpass(700));
+  biquad(clap, bandpass(voice.resonance * (0.92 + random() * 0.16), voice.q));
+
+  // The attack: two milliseconds of unfiltered noise, which is the part the ear
+  // uses to place the clap in time and hear it as a hard surface.
+  const attackLength = Math.min(seconds(0.002), length);
+  for (let i = 0; i < attackLength; i += 1) {
+    clap[i] += (random() * 2 - 1) * (1 - i / attackLength) * 0.9;
+  }
+
+  // Distance: far claps lose their top end long before they lose their level.
+  // This is what separates the front row from the back of the hall.
+  biquad(clap, lowpass(voice.brightness));
+  biquad(clap, highpass(320));
 
   for (let i = 0; i < length; i += 1) buffer[at + i] += clap[i] * gain;
 }
 
 /**
- * A crowd of roughly a hundred people applauding, at constant density so that
- * any point in the file sounds like any other -- which is what lets it loop.
+ * A whoop from the crowd: a voiced shout, not filtered noise.
+ *
+ * Given a pitch that rises then falls, harmonics, and a pair of formants, this
+ * reads unmistakably as a person. The previous version used band-limited noise,
+ * which reads as wind.
  */
-function makeApplause({ durationSec, clapsPerSecond, seed, cheer }) {
-  const random = mulberry32(seed);
-  const fade = seconds(0.75);
-  const total = seconds(durationSec) + fade;
-  const buffer = new Float32Array(total);
+function addWhoop(buffer, at, random) {
+  const durationSec = 0.55 + random() * 0.75;
+  const length = Math.min(seconds(durationSec), buffer.length - at);
+  if (length <= 0) return;
 
-  const clapCount = Math.round(durationSec * clapsPerSecond) + Math.round(clapsPerSecond * 0.75);
-  for (let i = 0; i < clapCount; i += 1) {
-    const at = Math.floor(random() * (total - seconds(0.2)));
-    // Log-ish distribution of loudness: a few close claps, many distant ones.
-    const gain = 0.15 + random() ** 2.2 * 0.85;
-    const brightness = 1100 + random() * 2600;
-    addClap(buffer, at, gain, brightness, random);
+  const base = 230 + random() * 300;
+  const rise = 1.18 + random() * 0.5;
+  const breath = 0.05 + random() * 0.06;
+  const voice = new Float32Array(length);
+
+  let phase = 0;
+  for (let i = 0; i < length; i += 1) {
+    const p = i / length;
+    // Pitch arcs up and back down, the shape of an actual "woo".
+    const freq = base * (1 + (rise - 1) * Math.sin(Math.PI * p));
+    phase += (2 * Math.PI * freq) / SAMPLE_RATE;
+
+    const envelope = Math.sin(Math.PI * p) ** 1.3;
+    const harmonics =
+      Math.sin(phase) + 0.5 * Math.sin(2 * phase) + 0.28 * Math.sin(3 * phase) + 0.15 * Math.sin(4 * phase);
+
+    voice[i] = (harmonics + (random() * 2 - 1) * breath) * envelope;
   }
 
-  // Underlying roar: the diffuse wash of a room full of people, which stops the
-  // result sounding like isolated clicks in an anechoic void.
-  const roar = new Float32Array(total);
-  for (let i = 0; i < total; i += 1) roar[i] = random() * 2 - 1;
-  biquad(roar, bandpass(620, 0.5));
-  biquad(roar, lowpass(2400));
-  for (let i = 0; i < total; i += 1) buffer[i] += roar[i] * 0.32;
+  // Two formants, roughly an open "oo" moving toward "aa".
+  biquad(voice, bandpass(620, 2.4));
+  biquad(voice, bandpass(1180, 3.2));
+
+  const level = 0.16 + random() * 0.16;
+  for (let i = 0; i < length; i += 1) buffer[at + i] += voice[i] * level;
+}
+
+/**
+ * A crowd applauding.
+ *
+ * The important idea here is that applause is not a random scatter of claps.
+ * It is a hundred people each clapping *periodically*, at their own tempo,
+ * slightly out of time with one another and drifting. A Poisson process of
+ * clicks -- which is what the first version of this was -- has the right
+ * average density and completely the wrong texture: it sounds like rain on a
+ * window, because nothing in it repeats. Give every clapper a pulse and the
+ * sound immediately reads as people.
+ *
+ * On top of that:
+ *   - each clapper has fixed hands, so their claps are consistent;
+ *   - each sits at a distance, which sets level, brightness and arrival delay;
+ *   - the whole crowd breathes, swelling and relaxing over a few seconds;
+ *   - the room smears it all together (see `reverb`).
+ *
+ * Density stays statistically even across the file so it can loop; the breathing
+ * is built from harmonics of the loop length so it wraps seamlessly too.
+ */
+function makeApplause({ durationSec, clappers, seed, cheer }) {
+  const random = mulberry32(seed);
+  const fade = seconds(0.9);
+  const total = seconds(durationSec) + fade;
+  const dry = new Float32Array(total);
+  const loopSamples = seconds(durationSec);
+
+  /*
+   * Crowd "breathing": slow swells in enthusiasm. Built only from whole
+   * harmonics of the loop length, so the modulation is exactly periodic over
+   * the loop and no discontinuity appears at the wrap point.
+   */
+  const swellPhases = [random(), random(), random()].map((v) => v * 2 * Math.PI);
+  const breathe = (sample) => {
+    const p = (2 * Math.PI * sample) / loopSamples;
+    return (
+      1 +
+      0.2 * Math.sin(p + swellPhases[0]) +
+      0.12 * Math.sin(2 * p + swellPhases[1]) +
+      0.07 * Math.sin(3 * p + swellPhases[2])
+    );
+  };
+
+  for (let c = 0; c < clappers; c += 1) {
+    // Where they are in the hall. Squared, so most of the crowd is further away
+    // than the few people near the microphone.
+    const distance = random() ** 0.6;
+
+    // Their hands. Cupped palms trap more air: lower, hollower, longer.
+    const cupped = random() < 0.42;
+    const voice = {
+      resonance: cupped ? 380 + random() * 420 : 950 + random() * 1500,
+      q: cupped ? 2.6 + random() * 1.8 : 1.1 + random() * 1.0,
+      decay: cupped ? 0.026 + random() * 0.022 : 0.011 + random() * 0.014,
+      // Air absorbs treble over distance.
+      brightness: 11000 - distance * 8200,
+    };
+
+    const level = (1 - 0.72 * distance) * (0.55 + random() * 0.65);
+    // Sound takes time to cross a hall; up to ~25 m of spread.
+    const arrival = Math.round(((distance * 25) / 343) * SAMPLE_RATE);
+
+    // Their tempo. People clap somewhere around two to five times a second.
+    let period = SAMPLE_RATE / (2.1 + random() * 2.9);
+    let t = random() * period;
+
+    while (t < total) {
+      // Nobody is a metronome: jitter each strike, and let the tempo wander.
+      const jitter = gaussian(random) * period * 0.035;
+      const at = Math.round(t + jitter) + arrival;
+
+      // Enthusiasm rises and falls with the crowd, and people miss beats.
+      const enthusiasm = breathe(at % loopSamples);
+      if (random() < 0.93 * Math.min(1, enthusiasm)) {
+        addClap(dry, at, voice, level * enthusiasm, random);
+      }
+
+      period *= 1 + gaussian(random) * 0.012;
+      period = Math.max(SAMPLE_RATE / 5.5, Math.min(SAMPLE_RATE / 1.8, period));
+      t += period;
+    }
+  }
 
   if (cheer) {
-    // Voices: narrow bands of noise with slow vibrato read as sustained shouts.
-    for (let voice = 0; voice < 14; voice += 1) {
-      const centre = 380 + random() * 900;
-      const start = Math.floor(random() * total);
-      const length = Math.min(seconds(0.7 + random() * 1.6), total - start);
-      if (length <= 0) continue;
-
-      const shout = new Float32Array(length);
-      const vibratoRate = 4 + random() * 3;
-      for (let i = 0; i < length; i += 1) {
-        const t = i / SAMPLE_RATE;
-        const envelope = Math.sin((Math.PI * i) / length) ** 1.5;
-        const vibrato = 1 + 0.06 * Math.sin(2 * Math.PI * vibratoRate * t);
-        shout[i] = (random() * 2 - 1) * envelope * vibrato;
-      }
-      biquad(shout, bandpass(centre, 6));
-      for (let i = 0; i < length; i += 1) buffer[start + i] += shout[i] * 0.5;
+    for (let i = 0; i < Math.round(durationSec * 0.9); i += 1) {
+      addWhoop(dry, Math.floor(random() * (total - seconds(1.4))), random);
     }
 
-    // A couple of whistles, high and piercing, as at any school prize-giving.
-    for (let whistle = 0; whistle < 2; whistle += 1) {
+    // A couple of whistles, high and piercing, as at any prize-giving.
+    for (let w = 0; w < 2; w += 1) {
       const start = Math.floor(random() * (total - seconds(1.2)));
-      const length = seconds(0.5 + random() * 0.5);
-      const base = 2100 + random() * 700;
+      const length = seconds(0.45 + random() * 0.5);
+      const freq0 = 2050 + random() * 750;
       for (let i = 0; i < length; i += 1) {
         const t = i / SAMPLE_RATE;
         const envelope = Math.sin((Math.PI * i) / length) ** 2;
-        const freq = base * (1 + 0.05 * Math.sin(2 * Math.PI * 5.5 * t));
-        buffer[start + i] += Math.sin(2 * Math.PI * freq * t) * envelope * 0.09;
+        const f = freq0 * (1 + 0.045 * Math.sin(2 * Math.PI * 5.5 * t));
+        dry[start + i] += Math.sin(2 * Math.PI * f * t) * envelope * 0.07;
       }
     }
   }
 
-  return normalise(makeLoopable(buffer, seconds(durationSec), fade), 0.92);
+  // The hall. Without this it is a very good recording of clicking, made in a
+  // vacuum; with it, it is a room full of people.
+  const wet = reverb(dry, { rt60: 1.45, damping: 0.36, wet: 0.42, predelayMs: 16 });
+
+  return normaliseRms(makeLoopable(wet, loopSamples, fade), -17);
 }
 
 /**
@@ -237,7 +445,9 @@ function makeAmbience({ durationSec, seed }) {
   // Very occasional distant movement, so it is not a static hiss.
   const random2 = mulberry32(seed + 1);
   for (let i = 0; i < Math.round(durationSec * 2.5); i += 1) {
-    addClap(buffer, Math.floor(random2() * (total - seconds(0.3))), 0.06, 900, random2);
+    // Distant, dull and quiet: someone shifting in a seat two rows back.
+    const distant = { resonance: 520, q: 2.2, decay: 0.03, brightness: 2200 };
+    addClap(buffer, Math.floor(random2() * (total - seconds(0.3))), distant, 0.05, random2);
   }
 
   return normalise(makeLoopable(buffer, seconds(durationSec), fade), 0.55);
@@ -393,5 +603,5 @@ write('riser.wav', makeRiser());
 // Loop lengths kept modest: long enough not to sound repetitive under a
 // 15-second applause tail, short enough to keep the admin page light.
 write('ambience.wav', makeAmbience({ durationSec: 9, seed: 7 }));
-write('applause.wav', makeApplause({ durationSec: 10, clapsPerSecond: 330, seed: 42, cheer: true }));
+write('applause.wav', makeApplause({ durationSec: 10, clappers: 95, seed: 42, cheer: true }));
 console.log('Done.');

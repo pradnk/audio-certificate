@@ -1,3 +1,4 @@
+import type { LogoPosition } from '@/lib/logo';
 import {
   boolean,
   index,
@@ -20,7 +21,12 @@ export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
-  orgName: text('org_name').notNull().default('Vividha Trust'),
+  /**
+   * The presenting organisation. Always supplied when an event is created --
+   * no default, because this is spoken aloud on every certificate and a
+   * leftover placeholder would be heard by everyone in the room.
+   */
+  orgName: text('org_name').notNull(),
   eventDate: text('event_date'),
   venue: text('venue'),
 
@@ -40,6 +46,19 @@ export const events = pgTable('events', {
   defaultLanguage: text('default_language').notNull().default('en-IN'),
 
   logoUrl: text('logo_url'),
+  /** Which corner of the certificate the logo sits in. See lib/logo.ts. */
+  logoPosition: text('logo_position').$type<LogoPosition>().notNull().default('top-right'),
+
+  /**
+   * When the event was marked complete, or null while it is still running.
+   *
+   * A timestamp rather than a boolean because "when did we finish Curious Minds
+   * 2026" is a question worth being able to answer later. Archiving only closes
+   * the admin side: certificate links stay public and playable forever, which
+   * is the whole point of handing them to families.
+   */
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

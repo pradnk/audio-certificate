@@ -70,7 +70,14 @@ export function modelSupportsSpeed(modelId: string): boolean {
 }
 
 /**
- * Starting wording for a new event.
+ * Starting wording for a brand new event, in a brand new deployment.
+ *
+ * Deliberately generic. This wording is *spoken aloud* on every certificate, so
+ * a default that describes one particular organisation's event would put the
+ * wrong words in another organisation's mouth -- and nobody proofreads a
+ * default they were never asked about. Every event can rewrite all of it under
+ * Event settings, and a second event inherits the wording of the first, so this
+ * plain version is only ever heard if someone chooses to keep it.
  *
  * Only English and Hindi ship with defaults. Every other language deliberately
  * starts empty: a machine-translated certificate that reads awkwardly at an
@@ -81,21 +88,18 @@ export function modelSupportsSpeed(modelId: string): boolean {
  */
 export const DEFAULT_TEMPLATES: Record<string, TemplateSet> = {
   'en-IN': {
-    intro:
-      '{{event}}. A National STEM Challenge for students with visual impairment and their teachers, presented by {{org}}.',
+    intro: '{{event}}, presented by {{org}}.',
     awardLine: 'This certificate is awarded to',
-    citation: '[[from {{location}}]][[ — for their exhibit, “{{projectTitle}}”]][[. {{blurb}}]]',
+    citation: '[[from {{location}}]][[ — for {{projectTitle}}]][[. {{blurb}}]]',
     prize: '{{award}}.',
-    closing:
-      'Congratulations. Keep asking questions, keep being curious. From all of us at {{org}}.',
+    closing: 'Congratulations, and very well done. From all of us at {{org}}.',
   },
   hi: {
-    intro:
-      '{{event}}। दृष्टिबाधित विद्यार्थियों और उनके शिक्षकों के लिए एक राष्ट्रीय स्टेम चैलेंज, प्रस्तुतकर्ता {{org}}।',
+    intro: '{{event}}, प्रस्तुतकर्ता {{org}}।',
     awardLine: 'यह प्रमाणपत्र प्रदान किया जाता है',
-    citation: '[[{{location}} से]][[, उनकी प्रदर्शनी “{{projectTitle}}” के लिए]][[। {{blurb}}]]',
+    citation: '[[{{location}} से]][[, {{projectTitle}} के लिए]][[। {{blurb}}]]',
     prize: '{{award}}।',
-    closing: 'बधाई हो। प्रश्न पूछते रहिए, जिज्ञासु बने रहिए। {{org}} की ओर से शुभकामनाएँ।',
+    closing: 'हार्दिक बधाई। {{org}} की ओर से शुभकामनाएँ।',
   },
 };
 

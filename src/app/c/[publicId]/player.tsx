@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
  * Two deliberate non-decisions, both of which the obvious instinct gets wrong
  * for this audience:
  *
- *   1. It does not autoplay. A blind visitor's screen reader begins announcing
+ *   1. It does not autoplay. A visually impaired visitor's screen reader begins announcing
  *      the page the moment it loads; audio starting on top of that talks over
  *      the very thing telling them whose certificate this is. Browsers would
  *      block it anyway, but this would be the right call even if they did not.

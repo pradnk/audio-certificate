@@ -1,4 +1,5 @@
 import type { Certificate, Event } from '@/lib/db/schema';
+import { isTop, isLeft } from '@/lib/logo';
 
 /**
  * The paper version of a certificate.
@@ -26,16 +27,33 @@ export function PrintableCertificate({
   qrDataUrl: string;
 }) {
   const details = [certificate.school, certificate.city].filter(Boolean).join(', ');
+  const logoAtTop = event.logoUrl && isTop(event.logoPosition);
+  const logoAtBottom = event.logoUrl && !isTop(event.logoPosition);
+  const side = isLeft(event.logoPosition) ? 'start' : 'end';
+
+  /*
+   * alt="" on purpose. The organisation's name is printed as text a few
+   * millimetres away, so giving the logo a text alternative would make a screen
+   * reader announce "Vividha Trust" twice. It is decorative in the precise
+   * sense the term means: it conveys nothing the text does not.
+   */
+  const logo = event.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob URL; next/image cannot participate in a print layout
+    <img src={event.logoUrl} alt="" className="certificate-logo" />
+  ) : null;
 
   return (
     <article className="certificate-page">
       <div className="certificate-frame">
-        <header className="certificate-header">
-          <p className="certificate-event">{event.name}</p>
-          <p className="certificate-org">
-            {event.orgName}
-            {event.eventDate ? ` · ${event.eventDate}` : ''}
-          </p>
+        <header className={`certificate-header certificate-band-${side}`}>
+          {logoAtTop && logo}
+          <div className="certificate-heading">
+            <p className="certificate-event">{event.name}</p>
+            <p className="certificate-org">
+              {event.orgName}
+              {event.eventDate ? ` · ${event.eventDate}` : ''}
+            </p>
+          </div>
         </header>
 
         <p className="certificate-lead">This certificate is awarded to</p>
@@ -52,7 +70,8 @@ export function PrintableCertificate({
           </p>
         )}
 
-        <footer className="certificate-footer">
+        <footer className={`certificate-footer certificate-band-${side}`}>
+          {logoAtBottom && logo}
           <div className="certificate-listen">
             <p className="certificate-listen-title">This certificate speaks.</p>
             <p className="certificate-listen-body">

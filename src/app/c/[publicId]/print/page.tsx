@@ -13,7 +13,22 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: PageProps<'/c/[publicId]/print'>) {
   const { publicId } = await params;
   const row = await getCertificateByPublicId(publicId);
-  return { title: row ? `Print — ${row.certificate.studentName}` : 'Print certificate' };
+  // Absolute title, and an explicit description, for the same reason as the
+  // certificate page itself: nothing under /c should mention the tool. Without
+  // its own description this page would inherit the root layout's, which names
+  // Taali.
+  return {
+    title: {
+      absolute: row
+        ? `Print — ${row.certificate.studentName} — ${row.event.orgName}`
+        : 'Print certificate',
+    },
+    description: row
+      ? `Printable certificate for ${row.certificate.studentName}, ${row.certificate.award} at ${row.event.name}.`
+      : 'Printable certificate.',
+    // A print sheet has no business in search results or link previews.
+    robots: { index: false, follow: false },
+  };
 }
 
 export default async function PrintCertificatePage({

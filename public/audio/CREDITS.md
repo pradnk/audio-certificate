@@ -5,7 +5,7 @@
 | `chime.wav` | Three ascending bell notes (C6–E6–G6) | Opens every certificate |
 | `ambience.wav` | Room tone, looped | Runs underneath the whole piece at −26 dB |
 | `riser.wav` | Rising filtered-noise sweep | Just before the prize is named |
-| `applause.wav` | Crowd applause with cheers and whistles, looped | From the prize reveal to the end |
+| `applause.wav` | ~95 individually-modelled clappers in a hall, with cheers and whistles, looped | From the prize reveal to the end |
 
 ## Licence
 
