@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Verification output from "npm run sample"
+sample-certificate.mp3
+Curious-Minds-2026-*.mp3

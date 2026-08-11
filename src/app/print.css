@@ -1,0 +1,165 @@
+/*
+ * Styles for the printable certificate.
+ *
+ * Written as plain CSS rather than utility classes because these rules have to
+ * behave identically on screen and on paper, and print layout depends on exact
+ * physical units that Tailwind's scale does not express.
+ */
+
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+.certificate-page {
+  /* Exact A4 landscape, so what is previewed is what prints. */
+  width: 297mm;
+  height: 210mm;
+  padding: 12mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #0d1b1a;
+  /* One certificate per sheet, always. */
+  break-after: page;
+  page-break-after: always;
+}
+
+.certificate-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.certificate-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10mm 12mm;
+  border: 3mm solid #0b4f4d;
+  border-radius: 4mm;
+}
+
+.certificate-header {
+  border-bottom: 1mm solid #0b4f4d;
+  padding-bottom: 4mm;
+  margin-bottom: 8mm;
+}
+
+.certificate-event {
+  margin: 0;
+  font-size: 22pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0b4f4d;
+}
+
+.certificate-org {
+  margin: 1mm 0 0;
+  font-size: 14pt;
+  color: #3f5250;
+}
+
+.certificate-lead {
+  margin: 0;
+  font-size: 16pt;
+  color: #3f5250;
+}
+
+.certificate-name {
+  /* The largest thing on the page by a wide margin: at this size it is legible
+     to someone with substantial residual vision holding it at arm's length. */
+  margin: 2mm 0 0;
+  font-size: 54pt;
+  line-height: 1.1;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.certificate-detail {
+  margin: 3mm 0 0;
+  font-size: 16pt;
+  color: #3f5250;
+}
+
+.certificate-award {
+  display: inline-block;
+  align-self: flex-start;
+  margin: 6mm 0 0;
+  padding: 2mm 5mm;
+  border-radius: 2mm;
+  background: #d6ecea;
+  font-size: 26pt;
+  font-weight: 700;
+  color: #06302f;
+}
+
+.certificate-project {
+  margin: 5mm 0 0;
+  font-size: 15pt;
+  line-height: 1.5;
+  max-width: 200mm;
+}
+
+.certificate-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-top: auto;
+  padding-top: 6mm;
+  border-top: 0.5mm solid #c6d5d3;
+}
+
+.certificate-listen-title {
+  margin: 0;
+  font-size: 15pt;
+  font-weight: 700;
+}
+
+.certificate-listen-body {
+  margin: 1mm 0 0;
+  font-size: 12pt;
+  color: #3f5250;
+  max-width: 150mm;
+}
+
+.certificate-url {
+  margin: 2mm 0 0;
+  font-size: 13pt;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.certificate-qr {
+  width: 32mm;
+  height: 32mm;
+  flex-shrink: 0;
+}
+
+/* Screen preview: show the sheet edges so the operator can see the page. */
+@media screen {
+  .certificate-page {
+    box-shadow: 0 0 0 1px #c6d5d3;
+    margin-bottom: 8mm;
+  }
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+
+  .certificate-page {
+    box-shadow: none;
+    margin: 0;
+  }
+
+  /* Keep the teal frame and award chip when printing; browsers strip
+     backgrounds by default and the certificate would print as bare text. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

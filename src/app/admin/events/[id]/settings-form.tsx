@@ -1,0 +1,484 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+
+import { updateEvent, type EventSettings } from '@/app/admin/actions';
+import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
+import type { Event, TemplateSet } from '@/lib/db/schema';
+import type { ElevenLabsVoice } from '@/lib/elevenlabs';
+import {
+  DEFAULT_TEMPLATES,
+  LANGUAGES_NEEDING_REVIEW,
+  MODEL_AUTO,
+  MODEL_MULTILINGUAL_V2,
+  MODEL_V3,
+  SUPPORTED_LANGUAGES,
+  languageLabel,
+  pickModelFor,
+  resolveModel,
+} from '@/lib/languages';
+
+const EMPTY_TEMPLATE: TemplateSet = {
+  intro: '',
+  awardLine: '',
+  citation: '',
+  prize: '',
+  closing: '',
+};
+
+const TEMPLATE_FIELDS: Array<{
+  key: keyof TemplateSet;
+  label: string;
+  hint: string;
+  rows: number;
+}> = [
+  {
+    key: 'intro',
+    label: 'Opening line',
+    hint: 'Spoken first, after the chime. The same for every student, so it is only recorded once.',
+    rows: 2,
+  },
+  {
+    key: 'awardLine',
+    label: 'Lead-in to the name',
+    hint: 'Deliberately has no full stop — it should lead into the name, not land.',
+    rows: 1,
+  },
+  {
+    key: 'citation',
+    label: 'What they did',
+    hint: 'Spoken after the name. Anything inside [[double brackets]] disappears if its details are missing.',
+    rows: 2,
+  },
+  { key: 'prize', label: 'The prize', hint: 'Spoken after the drum roll.', rows: 1 },
+  {
+    key: 'closing',
+    label: 'Closing line',
+    hint: 'Spoken over the applause. Also the same for every student.',
+    rows: 2,
+  },
+];
+
+/**
+ * Speaks a sample line in the selected voice.
+ *
+ * Worth the space it takes: a voice can be listed on the account and still be
+ * refused at synthesis time -- Voice Library voices need a paid ElevenLabs
+ * plan, for instance -- and without this the first anyone learns of it is a row
+ * of failed certificates. One click here settles both whether the voice works
+ * and whether it says an Indian name properly.
+ */
+function VoiceTest({ voiceId, modelId }: { voiceId: string; modelId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState('');
+
+  const SAMPLE = 'This certificate is awarded to Ravi Kumar. First Prize.';
+
+  const play = async () => {
+    setBusy(true);
+    setProblem('');
+    try {
+      const response = await fetch('/api/admin/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voiceId,
+          modelId,
+          segments: [{ id: 'name', spoken: SAMPLE, speed: 1 }],
+        }),
+      });
+      const body = (await response.json()) as { clips?: Array<{ url: string }>; error?: string };
+      if (!response.ok || !body.clips?.[0]) {
+        throw new Error(body.error ?? `The voice service returned ${response.status}.`);
+      }
+      const audio = new Audio(body.clips[0].url);
+      audio.addEventListener('ended', () => setBusy(false), { once: true });
+      await audio.play();
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : 'Could not play the sample.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" onClick={play} disabled={busy}>
+          {busy ? '♪ Playing…' : '♪ Test this voice'}
+        </Button>
+        <span className="text-ink-soft">“{SAMPLE}”</span>
+      </div>
+      {problem && <Alert>{problem}</Alert>}
+    </div>
+  );
+}
+
+const TOKENS = [
+  '{{event}}',
+  '{{org}}',
+  '{{name}}',
+  '{{location}}',
+  '{{school}}',
+  '{{city}}',
+  '{{class}}',
+  '{{projectTitle}}',
+  '{{blurb}}',
+  '{{award}}',
+];
+
+export function SettingsForm({
+  event,
+  voices,
+  voicesError,
+}: {
+  event: Event;
+  voices: ElevenLabsVoice[];
+  voicesError?: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const [settings, setSettings] = useState<EventSettings>({
+    name: event.name,
+    orgName: event.orgName,
+    eventDate: event.eventDate,
+    venue: event.venue,
+    voiceId: event.voiceId,
+    modelId: event.modelId,
+    defaultLanguage: event.defaultLanguage,
+    templates: event.templates,
+  });
+
+  const [activeLanguage, setActiveLanguage] = useState(event.defaultLanguage);
+  const activeTemplates = settings.templates[activeLanguage] ?? EMPTY_TEMPLATE;
+
+  const update = <K extends keyof EventSettings>(key: K, value: EventSettings[K]) => {
+    setSettings((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  };
+
+  const updateTemplate = (field: keyof TemplateSet, value: string) => {
+    setSettings((current) => ({
+      ...current,
+      templates: {
+        ...current.templates,
+        [activeLanguage]: { ...(current.templates[activeLanguage] ?? EMPTY_TEMPLATE), [field]: value },
+      },
+    }));
+    setSaved(false);
+  };
+
+  const save = () => {
+    setError('');
+    startTransition(async () => {
+      try {
+        await updateEvent(event.id, settings);
+        setSaved(true);
+        router.refresh();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Could not save.');
+      }
+    });
+  };
+
+  const hasWording = Boolean(settings.templates[activeLanguage]?.intro?.trim());
+  const needsReview = LANGUAGES_NEEDING_REVIEW.includes(activeLanguage);
+  const hasIndianVoice = voices.some((voice) =>
+    (voice.labels?.accent ?? '').toLowerCase().includes('indian'),
+  );
+  const selectedVoice = voices.find((voice) => voice.voice_id === settings.voiceId);
+
+  return (
+    <div className="flex flex-col gap-8">
+      {error && <Alert>{error}</Alert>}
+
+      <Card>
+        <h2 className="mb-5 text-xl font-bold">About the event</h2>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="name"
+            label="Event name"
+            hint="Spoken at the start of every certificate."
+          >
+            {(props) => (
+              <Input {...props} value={settings.name} onChange={(e) => update('name', e.target.value)} />
+            )}
+          </Field>
+
+          <Field id="orgName" label="Organisation">
+            {(props) => (
+              <Input
+                {...props}
+                value={settings.orgName}
+                onChange={(e) => update('orgName', e.target.value)}
+              />
+            )}
+          </Field>
+
+          <Field id="eventDate" label="Date (optional)" hint="Shown on the certificate page.">
+            {(props) => (
+              <Input
+                {...props}
+                value={settings.eventDate ?? ''}
+                onChange={(e) => update('eventDate', e.target.value)}
+                placeholder="23–24 November 2026"
+              />
+            )}
+          </Field>
+
+          <Field id="venue" label="Venue (optional)">
+            {(props) => (
+              <Input
+                {...props}
+                value={settings.venue ?? ''}
+                onChange={(e) => update('venue', e.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-5 text-xl font-bold">Voice</h2>
+
+        {voices.length > 0 && !selectedVoice && (
+          <Alert>
+            The voice this event was set up with is no longer on the ElevenLabs account. Pick
+            another below and save, or every certificate will fail.
+          </Alert>
+        )}
+
+        {selectedVoice?.category === 'professional' && (
+          <p className="mb-4 rounded-lg border-2 border-focus bg-teal-50 px-4 py-3">
+            <strong>{selectedVoice.name} came from the Voice Library.</strong> Those need a paid
+            ElevenLabs plan to use over the API — on a free plan every certificate will fail. Press{' '}
+            <strong>Test this voice</strong> below to check before running a batch.
+          </p>
+        )}
+
+        {voices.length > 0 && !hasIndianVoice && (
+          <p className="mb-4 rounded-lg border-2 border-focus bg-teal-50 px-4 py-3">
+            <strong>No Indian-accented voice is available on this account.</strong> The voices here
+            are American, British and Australian, which will read Indian names with the wrong
+            stress. Add one free from the{' '}
+            <a
+              href="https://elevenlabs.io/app/voice-library?accent=indian"
+              className="font-bold text-teal-900 underline underline-offset-4"
+              target="_blank"
+              rel="noreferrer"
+            >
+              ElevenLabs Voice Library
+            </a>{' '}
+            — search for an Indian English voice, click Add, then reload this page.
+          </p>
+        )}
+
+        {voicesError && (
+          <p className="mb-4 rounded-lg border-2 border-danger bg-danger-bg px-4 py-3 text-danger">
+            {voicesError} You can still paste a voice ID below.
+          </p>
+        )}
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="voiceId"
+            label="Reading voice"
+            hint="Pick one that reads Indian names naturally. Try a name on the students page before doing a whole batch."
+          >
+            {(props) =>
+              voices.length > 0 ? (
+                <Select
+                  {...props}
+                  value={settings.voiceId}
+                  onChange={(e) => update('voiceId', e.target.value)}
+                >
+                  {voices.every((voice) => voice.voice_id !== settings.voiceId) && (
+                    <option value={settings.voiceId}>Current voice ({settings.voiceId})</option>
+                  )}
+                  {voices.map((voice) => (
+                    <option key={voice.voice_id} value={voice.voice_id}>
+                      {voice.name}
+                      {voice.labels?.accent ? ` — ${voice.labels.accent}` : ''}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  {...props}
+                  value={settings.voiceId}
+                  onChange={(e) => update('voiceId', e.target.value)}
+                />
+              )
+            }
+          </Field>
+
+          <Field
+            id="defaultLanguage"
+            label="Default language"
+            hint="Used for new students. Each student can be changed individually."
+          >
+            {(props) => (
+              <Select
+                {...props}
+                value={settings.defaultLanguage}
+                onChange={(e) => update('defaultLanguage', e.target.value)}
+              >
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <option key={language.tag} value={language.tag}>
+                    {languageLabel(language.tag)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+
+          <Field
+            id="modelId"
+            label="Voice engine"
+            hint="Choose automatically unless you have a reason not to. It picks the engine that can both speak the language and slow the student's name down."
+          >
+            {(props) => (
+              <Select
+                {...props}
+                value={settings.modelId}
+                onChange={(e) => update('modelId', e.target.value)}
+              >
+                <option value={MODEL_AUTO}>Choose automatically (recommended)</option>
+                <option value={MODEL_MULTILINGUAL_V2}>
+                  Multilingual v2 — English, Hindi, Tamil only
+                </option>
+                <option value={MODEL_V3}>v3 — every language, cannot slow the name down</option>
+              </Select>
+            )}
+          </Field>
+        </div>
+
+        {settings.modelId === MODEL_AUTO && (
+          <p className="mt-4 text-ink-soft">
+            For {languageLabel(settings.defaultLanguage)} this will use{' '}
+            <strong>{pickModelFor(settings.defaultLanguage)}</strong>.
+          </p>
+        )}
+
+        <VoiceTest
+          voiceId={settings.voiceId}
+          modelId={resolveModel(settings.modelId, settings.defaultLanguage)}
+        />
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-xl font-bold">What the certificate says</h2>
+        <p className="mb-5 text-ink-soft">
+          Each language needs its own wording — the voice engine works out which language to speak
+          from the words themselves, so there is no setting that turns English into Hindi.
+        </p>
+
+        <div role="group" aria-label="Language to edit" className="mb-5 flex flex-wrap gap-2">
+          {SUPPORTED_LANGUAGES.map((language) => {
+            const filled = Boolean(settings.templates[language.tag]?.intro?.trim());
+            return (
+              <Button
+                key={language.tag}
+                variant={activeLanguage === language.tag ? 'primary' : 'secondary'}
+                aria-pressed={activeLanguage === language.tag}
+                className="min-h-11 px-3 text-sm"
+                onClick={() => setActiveLanguage(language.tag)}
+              >
+                {language.englishName}
+                {filled ? ' ✓' : ''}
+              </Button>
+            );
+          })}
+        </div>
+
+        {!hasWording && (
+          <div className="mb-5 rounded-lg border-2 border-line bg-paper-sunk p-4">
+            <p className="mb-3 font-bold">
+              No wording yet for {languageLabel(activeLanguage)}.
+            </p>
+            <p className="mb-3 text-ink-soft">
+              Certificates cannot be made in this language until someone who speaks it writes the
+              lines below. Machine translation is not offered on purpose: wording that reads
+              awkwardly at an awards ceremony is worse than wording a person wrote.
+            </p>
+            {DEFAULT_TEMPLATES[activeLanguage] && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSettings((current) => ({
+                    ...current,
+                    templates: {
+                      ...current.templates,
+                      [activeLanguage]: { ...DEFAULT_TEMPLATES[activeLanguage] },
+                    },
+                  }));
+                  setSaved(false);
+                }}
+              >
+                Start from the built-in wording
+              </Button>
+            )}
+          </div>
+        )}
+
+        {hasWording && needsReview && (
+          <p className="mb-5 rounded-lg border-2 border-focus bg-teal-50 px-4 py-3">
+            <strong>Please have a fluent speaker read this over.</strong> The built-in{' '}
+            {languageLabel(activeLanguage)} wording is a starting draft, not a checked translation.
+          </p>
+        )}
+
+        <div className="flex flex-col gap-5">
+          {TEMPLATE_FIELDS.map((field) => (
+            <Field
+              key={field.key}
+              id={`template-${field.key}`}
+              label={field.label}
+              hint={field.hint}
+            >
+              {(props) => (
+                <Textarea
+                  {...props}
+                  rows={field.rows}
+                  value={activeTemplates[field.key]}
+                  onChange={(e) => updateTemplate(field.key, e.target.value)}
+                  dir="auto"
+                />
+              )}
+            </Field>
+          ))}
+        </div>
+
+        <details className="mt-5">
+          <summary className="min-h-11 cursor-pointer font-bold text-teal-900">
+            Placeholders you can use
+          </summary>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {TOKENS.map((token) => (
+              <li key={token} className="rounded bg-paper-sunk px-2 py-1 font-mono text-sm">
+                {token}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-ink-soft">
+            <code className="font-mono">{'[[from {{school}}]]'}</code> — text in double brackets is
+            dropped entirely when the details inside it are blank, so one line covers a student with
+            a school and one without.
+          </p>
+        </details>
+      </Card>
+
+      <div className="flex items-center gap-4">
+        <Button onClick={save} disabled={pending}>
+          {pending ? 'Saving…' : 'Save settings'}
+        </Button>
+        <span aria-live="polite" className="font-bold text-success">
+          {saved && 'Saved.'}
+        </span>
+      </div>
+    </div>
+  );
+}
