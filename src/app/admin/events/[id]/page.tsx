@@ -37,7 +37,7 @@ export default async function EventSettingsPage({ params }: PageProps<'/admin/ev
           href={`/admin/events/${event.id}/students`}
           className="font-bold text-teal-900 underline underline-offset-4"
         >
-          Back to students
+          Back to recipients
         </Link>
       </div>
 

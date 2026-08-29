@@ -100,7 +100,7 @@ function EventRow({ event }: { event: Event }) {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-teal-800 px-4 font-bold text-white hover:bg-teal-900"
             >
               <PeopleIcon />
-              {archived ? 'View students' : 'Students'}
+              {archived ? 'View recipients' : 'Recipients'}
             </Link>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 
 import { Alert, Button, Field, Select } from '@/components/ui';
+import type { CertificateLayout } from '@/lib/certificate-layout';
 import {
   LOGO_CONTENT_TYPES,
   LOGO_POSITIONS,
@@ -22,14 +23,24 @@ import {
 export function LogoPicker({
   logoUrl,
   logoPosition,
+  layout,
   onChange,
   disabled,
 }: {
   logoUrl: string | null;
   logoPosition: LogoPosition;
+  /**
+   * Which printed arrangement is selected. The two treat this setting
+   * differently, and a picker that promised four corners while the sheet
+   * honoured two would be worse than one that says so.
+   */
+  layout: CertificateLayout;
   onChange: (next: { logoUrl: string | null; logoPosition: LogoPosition }) => void;
   disabled?: boolean;
 }) {
+  // The centred sheet has one logo band, across the top, so only the side is
+  // meaningful there; a bottom position lands in that band too.
+  const oneBand = layout === 'centred';
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +93,11 @@ export function LogoPicker({
         <Field
           id="logo-position"
           label="Where it sits"
-          hint="Applies to the printed certificate and the web page."
+          hint={
+            oneBand
+              ? 'The centred layout runs the logo across the top beside the event name, so only left and right change anything. On the certificate page it sits in the header.'
+              : 'One of the four corners of the printed sheet. On the certificate page, top and bottom become the header and the footer.'
+          }
         >
           {(props) => (
             <Select
@@ -108,7 +123,7 @@ export function LogoPicker({
 
       {logoUrl && (
         <div className="flex flex-wrap items-start gap-5">
-          <LogoPreview logoUrl={logoUrl} logoPosition={logoPosition} />
+          <LogoPreview logoUrl={logoUrl} logoPosition={logoPosition} oneBand={oneBand} />
           <Button
             variant="danger"
             disabled={disabled}
@@ -123,8 +138,16 @@ export function LogoPicker({
 }
 
 /** A miniature of the printed sheet, showing where the logo will land. */
-function LogoPreview({ logoUrl, logoPosition }: { logoUrl: string; logoPosition: LogoPosition }) {
-  const vertical = isTop(logoPosition) ? 'items-start' : 'items-end';
+function LogoPreview({
+  logoUrl,
+  logoPosition,
+  oneBand,
+}: {
+  logoUrl: string;
+  logoPosition: LogoPosition;
+  oneBand: boolean;
+}) {
+  const vertical = oneBand || isTop(logoPosition) ? 'items-start' : 'items-end';
   const horizontal = isLeft(logoPosition) ? 'justify-start' : 'justify-end';
 
   return (

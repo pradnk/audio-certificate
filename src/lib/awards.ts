@@ -12,7 +12,20 @@
  * spell-check and the printed spelling. A one-off award typed straight into
  * the box still works, so the day of the ceremony is never blocked by a
  * settings page.
+ *
+ * A list belongs to a recipient type rather than to the event, so that
+ * students and teachers are offered different prizes. See
+ * lib/recipient-types.ts.
+ *
+ * A category is an object rather than a bare string because it may carry its
+ * own wording, printed and spoken: "Certificate of Qualification" and
+ * "Certificate of Participation" are given for different things and rarely
+ * want the same words. See lib/wording.ts for how the levels resolve.
  */
+
+export type AwardCategory = {
+  name: string;
+} & WordingOverrides;
 
 /**
  * What a brand-new deployment starts with.
@@ -36,6 +49,8 @@ const MAX_AWARDS = 50;
 /** Long enough for "Certificate of Participation" and a qualifier, no more. */
 const MAX_AWARD_LENGTH = 120;
 
+import { normaliseWordingOverrides, type WordingOverrides } from '@/lib/wording';
+
 function key(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -47,31 +62,26 @@ function key(value: string): string {
  * form is a client component, so the array arriving at the action is whatever
  * the caller chose to send.
  */
-export function normaliseAwards(values: readonly string[]): string[] {
+export function normaliseAwards(
+  values: readonly (string | AwardCategory)[],
+): AwardCategory[] {
   const seen = new Set<string>();
-  const cleaned: string[] = [];
+  const cleaned: AwardCategory[] = [];
 
-  for (const value of values) {
-    const trimmed = value.replace(/\s+/g, ' ').trim().slice(0, MAX_AWARD_LENGTH);
-    if (!trimmed || seen.has(key(trimmed))) continue;
-    seen.add(key(trimmed));
-    cleaned.push(trimmed);
+  for (const value of values ?? []) {
+    // Bare strings are what every list held before categories could carry their
+    // own wording. Reading both shapes means no migration has to run before the
+    // app can start, and a list is rewritten in the new shape when it is saved.
+    const raw = typeof value === 'string' ? { name: value } : value;
+    const name = typeof raw?.name === 'string' ? raw.name.replace(/\s+/g, ' ').trim().slice(0, MAX_AWARD_LENGTH) : '';
+    if (!name || seen.has(key(name))) continue;
+    seen.add(key(name));
+
+    cleaned.push({ name, ...normaliseWordingOverrides(raw) });
     if (cleaned.length === MAX_AWARDS) break;
   }
 
   return cleaned;
-}
-
-/**
- * The categories to offer for an event, falling back to the built-in list.
- *
- * An event whose list has been emptied still needs something to suggest, and
- * an empty dropdown reads as a broken screen rather than as a deliberate
- * choice.
- */
-export function awardsFor(event: { awards?: string[] | null }): string[] {
-  const configured = normaliseAwards(event.awards ?? []);
-  return configured.length > 0 ? configured : [...DEFAULT_AWARDS];
 }
 
 /**
@@ -81,8 +91,11 @@ export function awardsFor(event: { awards?: string[] | null }): string[] {
  * comes out as "First Prize" on the printed certificate. Returns undefined for
  * anything not on the list -- the caller decides whether that is a problem.
  */
-export function matchAward(value: string, awards: readonly string[]): string | undefined {
+export function matchAward(
+  value: string,
+  awards: readonly AwardCategory[],
+): AwardCategory | undefined {
   const wanted = key(value);
   if (!wanted) return undefined;
-  return awards.find((award) => key(award) === wanted);
+  return awards.find((award) => key(award.name) === wanted);
 }

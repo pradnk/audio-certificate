@@ -51,7 +51,7 @@ export default async function PrintAllPage({ params }: PageProps<'/admin/events/
 
       {pages.length === 0 && (
         <p className="print-hide mx-auto max-w-4xl px-5">
-          There are no students in this event yet.
+          There is nobody in this event yet.
         </p>
       )}
 

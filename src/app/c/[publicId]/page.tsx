@@ -6,6 +6,12 @@ import { getCertificateByPublicId } from '@/lib/data';
 import type { ScriptSnapshot } from '@/lib/db/schema';
 import { certificateFileBase } from '@/lib/filename';
 import { isLeft, isTop } from '@/lib/logo';
+import {
+  recipientTypeFor,
+  recipientTypesFor,
+  printWordingFor,
+} from '@/lib/recipient-types';
+import { renderTemplate } from '@/lib/script';
 import { CertificatePlayer } from './player';
 
 export async function generateMetadata({ params }: PageProps<'/c/[publicId]'>): Promise<Metadata> {
@@ -49,6 +55,34 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
   const snapshot = certificate.scriptSnapshot as ScriptSnapshot | null;
   const audioUrl = certificate.status === 'ready' ? certificate.audioUrl : null;
 
+  // Shared with the printed sheet so the two never disagree. Rendered through
+  // the same substituter the spoken templates use, so `[[optional blocks]]`
+  // drop out here exactly as they do on paper.
+  const type = recipientTypeFor(recipientTypesFor(event), certificate.recipientType);
+  const role = type.label;
+  const printVars = {
+    role: role.toLowerCase(),
+    Role: role,
+    event: event.name,
+    org: event.orgName,
+    date: event.eventDate,
+    venue: event.venue,
+    name: certificate.studentName,
+    school: certificate.school,
+    city: certificate.city,
+    class: certificate.className,
+    projectTitle: certificate.projectTitle,
+    blurb: certificate.projectBlurb,
+    award: certificate.award,
+    location: [certificate.school, certificate.city]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(', '),
+  };
+  const wording = printWordingFor(type, certificate.award, event.printWording);
+  const recognition = renderTemplate(wording.recognition, printVars);
+  const closing = renderTemplate(wording.closing, printVars);
+
   /*
    * A web page has no corners the way an A4 sheet does, so the position setting
    * maps onto the two bands it does have: top puts the logo in the header,
@@ -86,10 +120,22 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
           {certificate.studentName}
         </h1>
 
-        <p className="mb-8 inline-block rounded-lg bg-teal-100 px-4 py-2 text-2xl font-bold text-teal-900">
+        <p className="inline-block rounded-lg bg-teal-100 px-4 py-2 text-2xl font-bold text-teal-900">
           {certificate.award}
         </p>
 
+        {/* The same recognition and closing lines the printed sheet carries, so
+            paper and screen say the same thing. Left aligned and at the page's
+            own size rather than centred to match the print layout: centred
+            prose is harder going for the readers this page exists for. */}
+        {(recognition || closing) && (
+          <div className="mt-6 flex flex-col gap-3 text-xl leading-relaxed">
+            {recognition && <p>{recognition}</p>}
+            {closing && <p className="font-bold">{closing}</p>}
+          </div>
+        )}
+
+        <div className="mt-8">
         {audioUrl ? (
           <CertificatePlayer
             audioUrl={audioUrl}
@@ -102,6 +148,7 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
             recording will appear here once it has been made.
           </p>
         )}
+        </div>
 
         {/* A verbatim transcript. It repeats the name and award shown above,
             which is the point: this is exactly what the recording says, so the

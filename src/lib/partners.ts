@@ -5,9 +5,9 @@ import { LOGO_CONTENT_TYPES, LOGO_MAX_BYTES } from '@/lib/logo';
  * certificate.
  *
  * Separate from `logoUrl`, which is the single mark of whoever is presenting
- * the award and sits in a corner. These are the co-organisers and supporters,
- * and there are usually several, so they get a row of their own rather than a
- * position setting.
+ * the award -- in a corner on the classic sheet, and leading the header beside
+ * the event's name on the centred one. These are the co-organisers and
+ * supporters, and there are usually several, so they get a row of their own.
  *
  * Per event, and empty by default: a ceremony's partners are the one thing
  * guaranteed to differ between deployments, and a certificate that credits an

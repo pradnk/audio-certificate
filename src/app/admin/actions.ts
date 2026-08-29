@@ -1,17 +1,27 @@
 'use server';
 
-import { eq, max } from 'drizzle-orm';
+import { eq, inArray, max } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { isAdmin } from '@/lib/auth-server';
-import { normaliseAwards } from '@/lib/awards';
+import {
+  DEFAULT_CERTIFICATE_LAYOUT,
+  DEFAULT_PARTNER_LOGO_POSITION,
+  isCertificateLayout,
+  isPartnerLogoPosition,
+  normalisePartnerLabel,
+  type CertificateLayout,
+  type PartnerLogoPosition,
+} from '@/lib/certificate-layout';
 import { mostRecentEvent, newEventDefaults, newPublicId, pickDefaultVoice } from '@/lib/data';
 import { listVoices } from '@/lib/elevenlabs';
 import { db } from '@/lib/db';
 import { certificates, events, type ScriptSnapshot } from '@/lib/db/schema';
 import { DEFAULT_LOGO_POSITION, isLogoPosition, type LogoPosition } from '@/lib/logo';
 import { normalisePartnerLogos, type PartnerLogo } from '@/lib/partners';
+import { normalisePrintWording, type PrintWording } from '@/lib/print-wording';
+import { normaliseRecipientTypes, type RecipientType } from '@/lib/recipient-types';
 import { buildScript, MissingTemplatesError } from '@/lib/script';
 
 async function assertAdmin(): Promise<void> {
@@ -132,10 +142,17 @@ export type EventSettings = {
   logoUrl: string | null;
   logoPosition: LogoPosition;
   templates: Record<string, { intro: string; awardLine: string; citation: string; prize: string; closing: string }>;
-  /** The prize categories offered for this event. See lib/awards.ts. */
-  awards: string[];
+  /** The groups this event honours, each with its prizes. See lib/recipient-types.ts. */
+  recipientTypes: RecipientType[];
   /** Co-organisers and supporters shown at the foot. See lib/partners.ts. */
   partnerLogos: PartnerLogo[];
+  partnerLogoPosition: PartnerLogoPosition;
+  /** Written above the partner logos; empty means no label. */
+  partnerLabel: string;
+  /** Which printed arrangement to use. See lib/certificate-layout.ts. */
+  certificateLayout: CertificateLayout;
+  /** The words on the printed sheet, as opposed to the spoken templates. */
+  printWording: PrintWording;
 };
 
 export async function updateEvent(eventId: string, settings: EventSettings): Promise<void> {
@@ -150,15 +167,28 @@ export async function updateEvent(eventId: string, settings: EventSettings): Pro
         ? settings.logoPosition
         : DEFAULT_LOGO_POSITION,
       // Trimmed and de-duplicated here rather than trusting the form: an action
-      // is a public POST endpoint, and this list is printed and spoken. A
+      // is a public POST endpoint, and these labels are printed and spoken. A
       // caller that sends no list at all -- a browser tab left open from before
-      // prize categories existed -- leaves the stored one alone rather than
+      // recipient types existed -- leaves the stored one alone rather than
       // silently clearing it.
-      awards: Array.isArray(settings.awards) ? normaliseAwards(settings.awards) : undefined,
+      recipientTypes: Array.isArray(settings.recipientTypes)
+        ? normaliseRecipientTypes(settings.recipientTypes)
+        : undefined,
       // Same treatment, and the same reason, as the awards list above.
       partnerLogos: Array.isArray(settings.partnerLogos)
         ? normalisePartnerLogos(settings.partnerLogos)
         : undefined,
+      // The two enums get the same guard-and-fall-back treatment as
+      // logoPosition above, so a stale or hand-made payload cannot store a
+      // value the renderer has no branch for.
+      partnerLogoPosition: isPartnerLogoPosition(settings.partnerLogoPosition)
+        ? settings.partnerLogoPosition
+        : DEFAULT_PARTNER_LOGO_POSITION,
+      partnerLabel: normalisePartnerLabel(settings.partnerLabel),
+      certificateLayout: isCertificateLayout(settings.certificateLayout)
+        ? settings.certificateLayout
+        : DEFAULT_CERTIFICATE_LAYOUT,
+      printWording: normalisePrintWording(settings.printWording),
       updatedAt: new Date(),
     })
     .where(eq(events.id, eventId));
@@ -208,6 +238,8 @@ export type CertificateInput = {
   projectTitle?: string | null;
   projectBlurb?: string | null;
   award: string;
+  /** Which recipient type this is, by id. Empty means the event's first. */
+  recipientType?: string;
   language: string;
 };
 
@@ -225,6 +257,7 @@ function clean(input: CertificateInput) {
     projectTitle: trim(input.projectTitle),
     projectBlurb: trim(input.projectBlurb),
     award: input.award.trim(),
+    recipientType: (input.recipientType ?? '').trim(),
     language: input.language,
   };
 }
@@ -281,6 +314,57 @@ export async function updateCertificate(
     .returning({ eventId: certificates.eventId });
 
   if (row) revalidatePath(`/admin/events/${row.eventId}/students`);
+}
+
+/**
+ * Changes the same field on several certificates at once.
+ *
+ * A whole group is usually wrong together -- a column read as the wrong prize,
+ * a school's worth of recipients entered under Student when they are teachers,
+ * a batch that should have been in Kannada. Fixing those one row at a time is
+ * where somebody gives up and settles for a certificate that is not quite
+ * right.
+ *
+ * Only the fields sent are touched, so a caller changing the prize cannot
+ * blank the language by omitting it.
+ */
+export async function updateCertificatesBulk(
+  certificateIds: string[],
+  changes: { award?: string; recipientType?: string; language?: string },
+): Promise<{ updated: number }> {
+  await assertAdmin();
+
+  const ids = [...new Set(certificateIds)].filter(Boolean);
+  if (ids.length === 0) return { updated: 0 };
+
+  const award = changes.award?.trim();
+  const recipientType = changes.recipientType?.trim();
+  const language = changes.language?.trim();
+  if (!award && !recipientType && !language) return { updated: 0 };
+
+  // Every row is checked, not just the first: a selection can span events, and
+  // a completed one must stay locked however the request arrived.
+  for (const id of ids) await assertCertificateEditable(id);
+
+  const rows = await db()
+    .update(certificates)
+    .set({
+      ...(award ? { award } : {}),
+      ...(recipientType ? { recipientType } : {}),
+      ...(language ? { language } : {}),
+      // The same reasoning as a single edit: the recording no longer matches
+      // the details, so it has to be made again rather than handed over saying
+      // one thing while the page says another.
+      status: 'draft',
+      reviewed: false,
+      errorMessage: null,
+    })
+    .where(inArray(certificates.id, ids))
+    .returning({ eventId: certificates.eventId });
+
+  const eventId = rows[0]?.eventId;
+  if (eventId) revalidatePath(`/admin/events/${eventId}/students`);
+  return { updated: rows.length };
 }
 
 export async function deleteCertificate(certificateId: string): Promise<void> {

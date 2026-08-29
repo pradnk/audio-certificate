@@ -6,6 +6,7 @@ import type {
   TemplateSet,
 } from '@/lib/db/schema';
 import { modelSupportsSpeed, resolveModel, terminatorFor } from '@/lib/languages';
+import { recipientTypeFor, recipientTypesFor, spokenTemplatesFor } from '@/lib/recipient-types';
 
 /**
  * Turns an event's wording templates plus one student's details into the exact
@@ -95,13 +96,22 @@ type CertificateInput = Pick<
   | 'projectTitle'
   | 'projectBlurb'
   | 'award'
+  | 'recipientType'
   | 'language'
 >;
 
 export function buildScript(event: Event, certificate: CertificateInput): ScriptSnapshot {
   const language = certificate.language || event.defaultLanguage;
-  const templates = templatesFor(event, language);
-  if (!templates) throw new MissingTemplatesError(language);
+  const shared = templatesFor(event, language);
+  if (!shared) throw new MissingTemplatesError(language);
+
+  const type = recipientTypeFor(recipientTypesFor(event), certificate.recipientType);
+  const roleLabel = type.label;
+
+  // Beat by beat, prize over group over event, and only for this language: a
+  // group with nothing to say in Kannada speaks the event's Kannada wording
+  // rather than its own English.
+  const templates = spokenTemplatesFor(type, certificate.award, language, shared);
 
   const vars: ScriptVars = {
     event: event.name,
@@ -115,6 +125,11 @@ export function buildScript(event: Event, certificate: CertificateInput): Script
     projectTitle: certificate.projectTitle,
     blurb: certificate.projectBlurb,
     award: certificate.award,
+    // What this person is here as -- "student", "teacher". Offered in two
+    // cases because a template needs both: "as a {{role}}" mid-sentence, and
+    // "{{Role}} of the Year" at the start of one.
+    role: roleLabel.toLowerCase(),
+    Role: roleLabel,
     // Pre-joined so one template covers school-only, city-only and both. If the
     // two were separate optional blocks, a student with a city but no recorded
     // school would be introduced as "Ravi Kumar Bengaluru".

@@ -1,5 +1,6 @@
 import type { CertificateInput } from '@/app/admin/actions';
 import { matchAward } from '@/lib/awards';
+import { matchRecipientType, type RecipientType } from '@/lib/recipient-types';
 import { SUPPORTED_LANGUAGES } from '@/lib/languages';
 
 /**
@@ -21,6 +22,7 @@ export const IMPORT_COLUMNS = [
   'Project title',
   'Description',
   'Award',
+  'Type',
   'Language',
 ] as const;
 
@@ -34,6 +36,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   projectTitle: ['project title', 'project', 'exhibit', 'title', 'experiment'],
   projectBlurb: ['description', 'blurb', 'about', 'details', 'one line', 'summary'],
   award: ['award', 'prize', 'result', 'position'],
+  recipientType: ['type', 'role', 'group', 'category', 'recipient type'],
   language: ['language', 'lang'],
 };
 
@@ -126,7 +129,14 @@ export type ParseResult = {
 
 export function parseStudentList(
   text: string,
-  options: { defaultLanguage: string; defaultAward?: string; awards?: string[] },
+  options: {
+    defaultLanguage: string;
+    defaultAward?: string;
+    /** The event's groups; a row's Type column is matched against these. */
+    types?: RecipientType[];
+    /** Which group a row with no Type column belongs to. */
+    defaultType?: string;
+  },
 ): ParseResult {
   const trimmed = text.trim();
   if (!trimmed) return { rows: [], problems: [], warnings: [], usedHeader: false };
@@ -134,7 +144,7 @@ export function parseStudentList(
   const cells = splitRows(trimmed, sniffDelimiter(trimmed));
   const problems: string[] = [];
   const warnings: string[] = [];
-  const awards = options.awards ?? [];
+  const types = options.types ?? [];
 
   // A first row whose cells look like column names is treated as a header, and
   // its order is used. Otherwise assume the documented column order.
@@ -152,6 +162,7 @@ export function parseStudentList(
         'projectTitle',
         'projectBlurb',
         'award',
+        'recipientType',
         'language',
       ];
 
@@ -172,6 +183,20 @@ export function parseStudentList(
       return;
     }
 
+    // The group decides which prize list this row is checked against, so a
+    // teacher's "Best Mentor" is not reported as a typo for a student prize.
+    const matchedType = matchRecipientType(record.recipientType ?? '', types);
+    if (record.recipientType && !matchedType && types.length > 0) {
+      warnings.push(
+        `Line ${lineNumber}: “${record.recipientType}” is not one of this event's groups, so this row was filed under ${types[0].label}.`,
+      );
+    }
+    const type =
+      matchedType ??
+      types.find((candidate) => candidate.id === options.defaultType) ??
+      types[0];
+    const awards = type?.awards ?? [];
+
     const rawAward = record.award || options.defaultAward || '';
     if (!rawAward) {
       problems.push(
@@ -187,7 +212,7 @@ export function parseStudentList(
     const known = matchAward(rawAward, awards);
     if (!known && awards.length > 0) {
       warnings.push(
-        `Line ${lineNumber}: "${rawAward}" is not one of this event's prize categories. It will be used exactly as written.`,
+        `Line ${lineNumber}: “${rawAward}” is not one of the prizes for ${type?.label ?? 'this group'}. It will be used exactly as written.`,
       );
     }
 
@@ -199,7 +224,8 @@ export function parseStudentList(
       className: record.className || null,
       projectTitle: record.projectTitle || null,
       projectBlurb: record.projectBlurb || null,
-      award: known ?? rawAward,
+      award: known?.name ?? rawAward,
+      recipientType: type?.id ?? '',
       language: resolveLanguage(record.language ?? '', options.defaultLanguage),
     });
   });
@@ -214,7 +240,7 @@ export function parseStudentList(
  * "First Prize", so a downloaded template never demonstrates a prize the event
  * does not hand out.
  */
-export function csvTemplate(awards: readonly string[] = []): string {
+export function csvTemplate(awards: readonly string[] = [], typeLabel = ''): string {
   const example = [
     'Ravi Kumar',
     'RUH-vee KOO-mar',
@@ -224,6 +250,7 @@ export function csvTemplate(awards: readonly string[] = []): string {
     'Talking Thermometer',
     'It measures the temperature and announces it aloud',
     awards[0] ?? 'First Prize',
+    typeLabel,
     'English (India)',
   ];
   return `${IMPORT_COLUMNS.join(',')}\n${example.map((cell) => `"${cell}"`).join(',')}\n`;

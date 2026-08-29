@@ -6,26 +6,27 @@ import { addCertificates, type CertificateInput } from '@/app/admin/actions';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import { SUPPORTED_LANGUAGES, languageLabel } from '@/lib/languages';
 import { IMPORT_COLUMNS, csvTemplate, parseStudentList } from '@/lib/paste-parse';
+import type { RecipientType } from '@/lib/recipient-types';
 
 export function AddStudents({
   eventId,
   defaultLanguage,
-  awards,
+  types,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
-  /** The event's prize categories, offered as suggestions. See lib/awards.ts. */
-  awards: string[];
+  /** The groups this event honours, each with its own prizes. */
+  types: RecipientType[];
   onAdded: (count: number) => void;
 }) {
   const [mode, setMode] = useState<'one' | 'many'>('one');
 
   return (
     <Card>
-      <h2 className="mb-4 text-xl font-bold">Add students</h2>
+      <h2 className="mb-4 text-xl font-bold">Add people</h2>
 
-      <div role="group" aria-label="How to add students" className="mb-6 flex flex-wrap gap-2">
+      <div role="group" aria-label="How to add people" className="mb-6 flex flex-wrap gap-2">
         <Button
           variant={mode === 'one' ? 'primary' : 'secondary'}
           aria-pressed={mode === 'one'}
@@ -46,14 +47,14 @@ export function AddStudents({
         <SingleStudentForm
           eventId={eventId}
           defaultLanguage={defaultLanguage}
-          awards={awards}
+          types={types}
           onAdded={onAdded}
         />
       ) : (
         <BulkImport
           eventId={eventId}
           defaultLanguage={defaultLanguage}
-          awards={awards}
+          types={types}
           onAdded={onAdded}
         />
       )}
@@ -64,14 +65,16 @@ export function AddStudents({
 function SingleStudentForm({
   eventId,
   defaultLanguage,
-  awards,
+  types,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
-  awards: string[];
+  types: RecipientType[];
   onAdded: (count: number) => void;
 }) {
+  const [typeId, setTypeId] = useState(types[0]?.id ?? '');
+  const awards = types.find((type) => type.id === typeId)?.awards ?? [];
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -86,11 +89,12 @@ function SingleStudentForm({
       projectTitle: String(formData.get('projectTitle') ?? ''),
       projectBlurb: String(formData.get('projectBlurb') ?? ''),
       award: String(formData.get('award') ?? ''),
+      recipientType: typeId,
       language: String(formData.get('language') ?? defaultLanguage),
     };
 
     if (!input.studentName.trim() || !input.award.trim()) {
-      setError('A student needs at least a name and an award.');
+      setError('A recipient needs at least a name and an award.');
       return;
     }
 
@@ -101,7 +105,7 @@ function SingleStudentForm({
         formRef.current?.reset();
         onAdded(added);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Could not add that student.');
+        setError(caught instanceof Error ? caught.message : 'Could not add that person.');
       }
     });
   };
@@ -111,7 +115,25 @@ function SingleStudentForm({
       {error && <Alert>{error}</Alert>}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="studentName" label="Student's name">
+        {types.length > 1 && (
+          <Field
+            id="recipientType"
+            label="This is a"
+            hint="Which group they belong to. It decides which prizes are offered."
+          >
+            {(props) => (
+              <Select {...props} value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+
+        <Field id="studentName" label="Name">
           {(props) => <Input {...props} name="studentName" required autoComplete="off" />}
         </Field>
 
@@ -138,13 +160,13 @@ function SingleStudentForm({
         {/* A free-text box with suggestions rather than a dropdown: the
             categories are set under Settings, but a one-off prize decided on
             the morning of the ceremony must not need a settings change first. */}
-        <Field id="award" label="Award" hint="Start typing to pick one of this event's categories.">
+        <Field id="award" label="Award" hint="Start typing to pick one of this group's prizes.">
           {(props) => (
             <>
               <Input {...props} name="award" required list="award-suggestions" autoComplete="off" />
               <datalist id="award-suggestions">
                 {awards.map((award) => (
-                  <option key={award} value={award} />
+                  <option key={award.name} value={award.name} />
                 ))}
               </datalist>
             </>
@@ -186,7 +208,7 @@ function SingleStudentForm({
       </Field>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? 'Adding…' : 'Add student'}
+        {pending ? 'Adding…' : 'Add to the list'}
       </Button>
     </form>
   );
@@ -195,21 +217,23 @@ function SingleStudentForm({
 function BulkImport({
   eventId,
   defaultLanguage,
-  awards,
+  types,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
-  awards: string[];
+  types: RecipientType[];
   onAdded: (count: number) => void;
 }) {
   const [text, setText] = useState('');
+  const [typeId, setTypeId] = useState(types[0]?.id ?? '');
+  const awards = types.find((type) => type.id === typeId)?.awards ?? [];
   const [defaultAward, setDefaultAward] = useState('');
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
 
   const preview = text.trim()
-    ? parseStudentList(text, { defaultLanguage, defaultAward, awards })
+    ? parseStudentList(text, { defaultLanguage, defaultAward, types, defaultType: typeId })
     : null;
 
   const readFile = async (file: File) => {
@@ -225,13 +249,16 @@ function BulkImport({
         setText('');
         onAdded(added);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Could not add those students.');
+        setError(caught instanceof Error ? caught.message : 'Could not add those people.');
       }
     });
   };
 
   const downloadTemplate = () => {
-    const url = URL.createObjectURL(new Blob([csvTemplate(awards)], { type: 'text/csv' }));
+    const label = types.find((type) => type.id === typeId)?.label ?? '';
+    const url = URL.createObjectURL(
+      new Blob([csvTemplate(awards.map((award) => award.name), label)], { type: 'text/csv' }),
+    );
     const link = document.createElement('a');
     link.href = url;
     link.download = 'student-list-template.csv';
@@ -250,10 +277,18 @@ function BulkImport({
           A header row is optional — if you include one, the columns can be in any order. Only{' '}
           <strong>Name</strong> and <strong>Award</strong> are required.
         </p>
+        {types.length > 1 && (
+          <p className="mt-2 text-ink-soft">
+            The <strong>Type</strong> column says which group each row is —{' '}
+            {types.map((type) => type.label).join(' or ')}. Leave it out and every row is filed
+            under the group chosen below.
+          </p>
+        )}
         {awards.length > 0 && (
           <p className="mt-2 text-ink-soft">
-            Awards in this event: {awards.join(' · ')}. Capitals and spacing do not matter — they
-            are corrected to these spellings. Anything else is kept exactly as you wrote it.
+            Prizes for {types.find((type) => type.id === typeId)?.label ?? 'this group'}:{' '}
+            {awards.map((award) => award.name).join(' · ')}. Capitals and spacing do not matter —
+            they are corrected to these spellings. Anything else is kept exactly as you wrote it.
           </p>
         )}
         <Button variant="quiet" onClick={downloadTemplate} className="mt-2 px-0">
@@ -297,6 +332,24 @@ function BulkImport({
           )}
         </Field>
 
+        {types.length > 1 && (
+          <Field
+            id="bulk-type"
+            label="Group for rows without a Type column"
+            hint="Every row goes here unless its own Type column says otherwise."
+          >
+            {(props) => (
+              <Select {...props} value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+
         <Field
           id="default-award"
           label="Award for rows that do not have one"
@@ -310,11 +363,11 @@ function BulkImport({
                 onChange={(event) => setDefaultAward(event.target.value)}
                 list="bulk-award-suggestions"
                 autoComplete="off"
-                placeholder={awards[awards.length - 1] ?? 'Certificate of Participation'}
+                placeholder={awards[awards.length - 1]?.name ?? 'Certificate of Participation'}
               />
               <datalist id="bulk-award-suggestions">
                 {awards.map((award) => (
-                  <option key={award} value={award} />
+                  <option key={award.name} value={award.name} />
                 ))}
               </datalist>
             </>
@@ -327,7 +380,7 @@ function BulkImport({
           <p className="font-bold">
             {preview.rows.length === 0
               ? 'Nothing to add yet.'
-              : `Ready to add ${preview.rows.length} student${preview.rows.length === 1 ? '' : 's'}.`}
+              : `Ready to add ${preview.rows.length} ${preview.rows.length === 1 ? 'person' : 'people'}.`}
             {preview.usedHeader && ' Header row detected.'}
           </p>
 
@@ -369,7 +422,7 @@ function BulkImport({
         disabled={pending || !preview || preview.rows.length === 0}
         className="self-start"
       >
-        {pending ? 'Adding…' : `Add ${preview?.rows.length ?? 0} students`}
+        {pending ? 'Adding…' : `Add ${preview?.rows.length ?? 0} to the list`}
       </Button>
     </div>
   );

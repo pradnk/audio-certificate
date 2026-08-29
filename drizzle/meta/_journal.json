@@ -36,6 +36,27 @@
       "when": 1787988294586,
       "tag": "0004_partner_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787990524980,
+      "tag": "0005_certificate_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787992127445,
+      "tag": "0006_recipient_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787992146583,
+      "tag": "0007_drop_event_awards",
+      "breakpoints": true
     }
   ]
 }

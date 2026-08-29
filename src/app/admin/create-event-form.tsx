@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { createEvent } from '@/app/admin/actions';
 import { LogoPicker } from '@/components/logo-picker';
+import { DEFAULT_CERTIFICATE_LAYOUT } from '@/lib/certificate-layout';
 import { Button, Field, Input } from '@/components/ui';
 import { DEFAULT_LOGO_POSITION, type LogoPosition } from '@/lib/logo';
 
@@ -56,6 +57,9 @@ export function CreateEventForm({
       <LogoPicker
         logoUrl={logoUrl}
         logoPosition={logoPosition}
+        // A brand new event has no layout of its own yet, so the picker
+        // describes the one it will start with.
+        layout={DEFAULT_CERTIFICATE_LAYOUT}
         onChange={(next) => {
           setLogoUrl(next.logoUrl);
           setLogoPosition(next.logoPosition);

@@ -47,9 +47,10 @@ On the Events page, fill in **Start a new event**:
 - **Event name** — this is spoken aloud at the start of every certificate, so
   write it the way you would say it out loud.
 - **Organisation** — who is presenting the awards. Also spoken aloud.
-- **Organisation logo** *(optional)* — choose an image file, then pick which
-  corner it sits in. A small preview shows you where it will land on the printed
-  certificate. The same choice applies to the web page.
+- **Organisation logo** *(optional)* — the mark of whoever is presenting the
+  award. Choose an image file, then pick where it sits; a small preview shows
+  you where it will land. Co-organisers and supporters are added later, under
+  **Other organisations**.
 
 Click **Create event**.
 
@@ -68,16 +69,23 @@ is the **Settings** button next to your event.)
 whether it handles your recipients' names properly. **Do this before making
 dozens of certificates**, not after.
 
-**Prize categories.** The list of prizes this event hands out — *First Prize*,
-*Special Mention*, and so on. Edit any of them, click **Add a category** for a
-new one, or **Remove** for one you do not give out. **Restore the standard list**
-puts the original five back.
+**Who is being recognised.** Most events honour more than one group — the
+students who took part, and the teachers who got them there. Each group has its
+own name and its own list of prizes. Click **Add another group** for a second
+one, and **Remove group** for one you do not need.
 
-These categories are what the **Award** box suggests when you add someone, and
-what a pasted spreadsheet is checked against. They are suggestions, not a
-straitjacket: an award typed straight into the box still works even if it is not
-on the list, so a prize decided on the morning of the ceremony never needs a
-settings change first. See *[Adding a new kind of prize](#adding-a-new-kind-of-prize)*.
+The prizes for a group are what the **Award** box suggests when you add somebody
+of that kind, and what a pasted spreadsheet is checked against. They are
+suggestions, not a straitjacket: an award typed straight into the box still works
+even if it is not on the list, so a prize decided on the morning of the ceremony
+never needs a settings change first. See
+*[Adding a new kind of prize](#adding-a-new-kind-of-prize)*.
+
+The words on the certificate stay the same for everybody. Put
+`{{role}}` in them wherever the group's own name belongs, and each certificate
+fills in its own — *"…for their contribution to Curious Minds 2026 as a
+{{role}}."* reads correctly for a student and for a teacher. Use `{{Role}}` when
+it starts a sentence.
 
 **Other organisations.** If the event is run with partners, or supported by
 them, add their logos here. Click **Add a logo**, choose the image file, and type
@@ -93,6 +101,37 @@ The logos appear in a row at the foot of the printed certificate and on the
 certificate page. **They are never spoken.** The recording stays about the person
 receiving the award — see *[Adding other organisations'
 logos](#adding-other-organisations-logos)*.
+
+**The printed certificate.** Two arrangements to choose from:
+
+- **Classic** — everything aligned left, with the event and organisation in a
+  ruled header, the prize, and what they showed.
+- **Centred** — a large title across the top, then the name, school and prize
+  centred beneath it, and a sign-off at the foot with about 25mm of clear space
+  under it to sign in by hand. It does not print what they showed, so it suits a
+  ceremony where the exhibit is not the point.
+
+**Long names look after themselves.** A name or school line too long for one
+line is quietly stepped down a size or two on that certificate alone, so it
+stays on one line and the sheet still matches the rest of the pile. Nothing else
+moves. If a name is so long that even that cannot rescue it, the print page says
+so by name before you print, and shortening it — a middle name, or the city — is
+usually all it takes.
+
+Neither layout prints the date. What matters years later is whose award it was,
+not which afternoon it was handed over — and the event's **Date** is still shown
+on the certificate page, and still available as `{{date}}` if you want it in the
+wording.
+
+Beneath the choice are the words on the sheet. The Centred layout uses all of
+them; Classic only uses the line above the name, and says so next to the ones it
+ignores. These are the *printed* words — the recording is set under **What the
+certificate says** below, and changing anything here never means remaking audio.
+
+The same `{{placeholders}}` work as in the spoken wording, including
+`[[double brackets]]` for text that should disappear when its details are
+missing — which is how `[[from {{location}}]]` prints nothing at all for a
+recipient with no school or city recorded, rather than a bare "from".
 
 **What the certificate says.** This is the actual wording. You can change any of
 it. Words in `{{double braces}}` are filled in automatically — `{{name}}`
@@ -119,7 +158,7 @@ row in them.
 
 ### The spreadsheet format
 
-**One row per person. Nine columns, in this order:**
+**One row per person. Ten columns, in this order:**
 
 | # | Column | Required | What goes in it |
 |---|---|---|---|
@@ -131,7 +170,8 @@ row in them.
 | 6 | **Project title** | no | What they showed or did — `Talking Thermometer`. |
 | 7 | **Description** | no | One sentence about it. One sentence really is plenty; it is read aloud. |
 | 8 | **Award** | **Yes** | The prize — `First Prize`. See *[Awards in the sheet](#awards-in-the-sheet)* below. |
-| 9 | **Language** | no | Which language the certificate is spoken in. Empty means the event's default. See *[Languages in the sheet](#languages-in-the-sheet)* below. |
+| 9 | **Type** | no | Which group they belong to — `Student`, `Teacher`. Empty means whichever group is chosen above the paste box. Only worth a column if one sheet mixes groups. |
+| 10 | **Language** | no | Which language the certificate is spoken in. Empty means the event's default. See *[Languages in the sheet](#languages-in-the-sheet)* below. |
 
 A cell you have nothing for is left empty. An empty cell is not an error — the
 wording closes up around missing details, so a recipient with no school does not
@@ -140,7 +180,7 @@ get a certificate that says "from ,".
 **A header row is optional, but recommended.** If the first row looks like column
 headings, Taali uses it and your columns can then be in *any* order, with columns
 you do not need left out entirely. Without a header row Taali assumes exactly the
-nine columns above, in that order.
+ten columns above, in that order.
 
 For a header row to be recognised, at least two of its cells must be names Taali
 knows. It is not fussy about capitals, spaces, hyphens or underscores, and it
@@ -156,6 +196,7 @@ accepts the obvious synonyms:
 | Project title | `Project title` · `Project` · `Exhibit` · `Title` · `Experiment` |
 | Description | `Description` · `Blurb` · `About` · `Details` · `One line` · `Summary` |
 | Award | `Award` · `Prize` · `Result` · `Position` |
+| Type | `Type` · `Role` · `Group` · `Category` |
 | Language | `Language` · `Lang` |
 
 Any column whose heading Taali does not recognise — an internal ID, a phone
@@ -164,10 +205,15 @@ usually paste your working sheet as it is.
 
 #### Awards in the sheet
 
-The Award column is matched against your event's prize categories
-(Settings → **Prize categories**), ignoring capitals and extra spaces. So a
-column reading `first prize` is stored, printed and spoken as `First Prize` —
+The Award column is matched against the prizes for that row's **group**
+(Settings → **Who is being recognised**), ignoring capitals and extra spaces. So
+a column reading `first prize` is stored, printed and spoken as `First Prize` —
 whatever spelling you set in Settings is the one that reaches the certificate.
+
+Because each group has its own list, a teacher's prize on a student's row is
+pointed out rather than quietly accepted, which catches a mis-sorted sheet before
+it is printed. The prize also decides what the certificate says it is for, when
+that prize has been given its own wording.
 
 An award that is *not* one of the categories is still accepted and used exactly
 as you typed it; Taali just points it out in the preview, because an award that
@@ -213,14 +259,14 @@ language](#recipients-can-each-have-their-own-language)*.
 **A complete example**, header row included:
 
 ```csv
-Name,Say it like,School,City,Class,Project title,Description,Award,Language
-Ravi Kumar,RUH-vee KOO-mar,ACTS Secondary School,Bengaluru,Class 8,Talking Thermometer,"It measures the temperature, and announces it aloud",First Prize,English (India)
-Meera Nair,,St Anne's High School,Kochi,Class 9,Braille Sorter,,Second Prize,Malayalam
-Arjun Rao,,,,,,,Certificate of Participation,
+Name,Say it like,School,City,Class,Project title,Description,Award,Type,Language
+Ravi Kumar,RUH-vee KOO-mar,ACTS Secondary School,Bengaluru,Class 8,Talking Thermometer,"It measures the temperature, and announces it aloud",First Prize,Student,English (India)
+Meera Nair,,St Anne's High School,Kochi,Class 9,Braille Sorter,,Second Prize,Student,Malayalam
+Lakshmi Menon,,ACTS Secondary School,Bengaluru,,,,Best Mentor,Teacher,
 ```
 
-Meera has no sounds-like spelling and no description; Arjun is a name and an
-award and nothing else, which is a perfectly good certificate. Note that their
+Meera has no sounds-like spelling and no description; Lakshmi is a teacher, so
+the class and exhibit columns are simply left empty. Note that their
 empty cells still need their commas — it is a value's *position* that says which
 column it belongs to, header row or not.
 
@@ -302,6 +348,25 @@ in 2036.
 
 ## Things worth knowing
 
+### Different words in the recording
+
+The five lines under **What the certificate says** are what everybody hears. When
+a group or a prize needs different words — a teacher is thanked for guiding
+students, not for exhibiting — open the panel below them, *Different words for
+some groups or prizes*, and fill in only the lines that change.
+
+Three things are worth knowing:
+
+- **The most specific wins**: the prize's words, then the group's, then the
+  event's. Fill in only what differs.
+- **These belong to the language tab you are on.** The voice works out which
+  language to speak from the words themselves, so an English line reaching a
+  Hindi certificate would not be a translation slip — it would be a recording
+  that changes language mid-sentence. A language you have written nothing for
+  simply uses that language's own wording above.
+- **Certificates already made keep the words they were made with.** Change these
+  and the affected people need **Make** clicking again.
+
 ### Recipients can each have their own language
 
 Every person has a **Language** setting. Taali supports English, Hindi, Kannada,
@@ -317,12 +382,44 @@ draft and Taali says so on screen — please have a fluent speaker read it befor
 an event. Other languages start empty on purpose: wording that reads awkwardly
 at an awards ceremony is worse than wording a real speaker wrote.
 
+### Recognising more than one group
+
+An event usually honours more than students. Open **Settings → Who is being
+recognised**, click **Add another group**, name it (*Teacher*, *Volunteer*,
+*Judge*) and give it its own prizes.
+
+- **Each group has its own prizes**, so a student is never offered "Best Mentor"
+  and a teacher is never offered "First Prize" — and a pasted sheet that files
+  one under the other is flagged before you print.
+- **Each group can say what it is recognised *for*.** A student took part; a
+  teacher guided the students who took part, and no one sentence says both well.
+  Fill in that box for the group and it uses its own line; leave it empty and it
+  falls back to the shared one under **The printed certificate**.
+- **Each prize can too.** Under every prize there is a **Give this prize its own
+  wording** link — worth using when two prizes in the same group mean different
+  things, as *Certificate of Qualification* and *Certificate of Participation*
+  do. Whichever is most specific wins: the prize's line, then the group's, then
+  the shared one, so you only fill in what actually differs.
+- **The parting line works the same way**, so "keep experimenting" does not have
+  to be said to a teacher.
+- **The recording can differ too.** Under **What the certificate says** there is
+  a panel headed *Different words for some groups or prizes*, listing every
+  group and every prize. Any of the five spoken lines can be replaced there, and
+  anything left empty is spoken exactly as written above it.
+- **The rest of the words are shared.** Put `{{role}}` where the group's name
+  belongs and each certificate fills in its own.
+- **Existing events already have a group** called *Student*, holding the prizes
+  they already had. If one group is all you need, nothing about the screens
+  changes.
+- Renaming a group is safe — certificates already made stay with it.
+
 ### Adding a new kind of prize
 
-Open the event's **Settings** and find **Prize categories**. Click **Add a
-category**, type the name of the prize — `Best Team Effort`, `Judges' Choice`,
-`Long Service Award` — and click **Save settings**. It is offered from then on
-wherever an award is asked for, and pasted spreadsheets are checked against it.
+Open the event's **Settings** and find **Who is being recognised**, then the
+group you want. Click **Add a category**, type the name of the prize —
+`Best Team Effort`, `Judges' Choice`, `Long Service Award` — and click
+**Save settings**. It is offered from then on whenever you add somebody of that
+group, and their pasted rows are checked against it.
 
 Write it exactly as it should be **heard**, because it is read aloud on every
 certificate that uses it, and exactly as it should be **printed**, because that
@@ -330,9 +427,10 @@ is the spelling that reaches the page.
 
 A few things worth knowing:
 
-- **The categories belong to the event, not to the whole site.** A sports day
-  and a science fair each get their own list. A new event starts with the
-  previous event's list, so next year's ceremony already has last year's prizes.
+- **The categories belong to a group within the event**, not to the whole site.
+  A sports day and a science fair each get their own, and students and teachers
+  each get theirs. A new event starts with the previous event's groups and
+  prizes, so next year's ceremony already has last year's.
 - **They are suggestions, not a fixed set.** An award typed straight into the
   **Award** box is accepted even if it is not a category — nothing about adding
   a person is blocked by the settings page.
@@ -343,17 +441,43 @@ A few things worth knowing:
   Taali suggesting it.
 - Blank rows and repeats are dropped when you save.
 
+### Changing several people at once
+
+Tick the boxes down the left of the list — or the one in the heading to take
+everyone — and a panel appears above the table. From it you can change the
+**prize**, move people to a different **group**, or change the **language**, for
+everybody ticked at once. Each control acts as soon as you choose from it.
+
+**Make these N again** re-records just the ticked rows, which is the quick way
+back after a bulk change.
+
+Anything you change this way marks those certificates as needing to be made
+again, for the same reason a single edit does: the recording would otherwise say
+one thing while the page says another.
+
 ### Changing someone's details
 
 If you edit a recipient after their certificate is made, the certificate is
 marked *Not made yet* again. That is deliberate — otherwise the recording would
 say one thing and the printed page another. Just click **Make** again.
 
-### The logo
+### Your organisation's logo
 
-Change it at any time in **Settings**, including which corner it sits in.
-Existing certificate pages pick up the new logo immediately; anything already
-printed obviously does not.
+This is the mark of whoever is presenting the award — the one named under
+**Organisation**. Anyone helping to run the event belongs under **Other
+organisations** instead, where they get a row of their own.
+
+Where it sits depends on the layout, and **Settings** says which applies:
+
+- **Classic** — any of the four corners of the sheet.
+- **Centred** — across the top beside the event's name, so only *left* and
+  *right* change anything. A bottom setting lands in that band too rather than
+  dropping the logo off the sheet.
+
+On the certificate page, top and bottom become the header and the footer.
+
+Change it at any time. Existing certificate pages pick up the new logo
+immediately; anything already printed obviously does not.
 
 ### Adding other organisations' logos
 
@@ -370,10 +494,14 @@ A few things worth knowing:
   white, so a logo saved with a light grey background will show as a faint box
   around it.
 - **Give each one plenty of resolution** — 600 pixels across or more, or an SVG.
-  A logo is printed about 14mm tall, and a small image looks visibly fuzzy on
+  A logo is printed about 12mm tall, and a small image looks visibly fuzzy on
   paper even though it looks fine on screen.
 - **They belong to the event**, so a sports day and a science fair can have
   different ones, and next year's event starts with this year's list.
+- **You choose where they sit** — across the foot of the sheet, or at the top
+  right beside the event's name — and what is written above them. Clearing that
+  box gives you the logos and nothing else. Nothing is ever written above them
+  when they sit at the top, where a caption would read as a stray heading.
 - The row is sized so that all logos come out at roughly equal visual weight
   whatever their shape — a tall square mark and a wide wordmark both fit.
 
@@ -389,7 +517,8 @@ A few things worth knowing:
 | **"Free users cannot use library voices"** | The voice chosen needs a paid ElevenLabs plan. Either upgrade the plan, or pick a different voice in Settings and press **♪ Test this voice** to confirm it works. |
 | **"This event is marked complete"** | The event is locked. Open **Settings** and click **Reopen event**. |
 | **"Your session has expired"** | Sign in again. |
-| **"N certificates will not fit on one sheet"** | The content runs past the border and would spill onto a second page. It is almost always a long description — shorten it on the students page. A very long name can do it too. The named certificates are the only ones affected. |
+| **"N lines would not fit on one line, even made smaller"** | A name or school line so long that shrinking it could not keep it on one line. It still prints, wrapped. Shorten it on the recipients page — a middle name or the city is usually enough. |
+| **"N certificates will not fit on one sheet"** | The content runs past the border and would spill onto a second page. Most often it is a name long enough to wrap onto a second line, which costs more room than anything else on the sheet; a long description or a long recognition paragraph can do it too. The named certificates are the only ones affected. |
 | **The link asks me to sign in to Vercel** | Deployment Protection is switched on for the project, so every certificate link is private. In the Vercel dashboard: **Project → Settings → Deployment Protection → Vercel Authentication → Disabled**. Certificate pages are meant to be public — that is the whole point of handing the link to a family. |
 | **"Do not print — these QR codes will stop working"** | `NEXT_PUBLIC_SITE_URL` is set to one deployment's own address rather than the project's. Set it to the permanent address and redeploy — see the settings table in Part 2. |
 | **The QR codes do not scan** | Taali warns you on the print page when this will happen. Do not print until that warning is gone — ask whoever maintains the site. |
@@ -648,8 +777,12 @@ src/lib/audio/     score.ts (the timeline), mix.ts (the audio graph),
                    loudness.ts (BS.1770), encode.worker.ts (MP3, off-thread)
 src/lib/script.ts  turns event wording + one recipient into the spoken clips
 src/lib/languages.ts  language list, per-language wording, engine selection
-src/lib/awards.ts  per-event prize categories, and matching a pasted award to one
-src/lib/partners.ts  co-organiser logos shown at the foot, never spoken
+src/lib/awards.ts  a group's prize list, and matching a pasted award to one
+src/lib/recipient-types.ts  the groups an event honours, each with its prizes
+src/lib/wording.ts  the three levels wording resolves through: prize, group, event
+src/lib/partners.ts  co-organiser logos shown on the sheet, never spoken
+src/lib/certificate-layout.ts  which printed arrangement, and where the logos sit
+src/lib/print-wording.ts  the words on the printed sheet (the audio has its own)
 src/lib/paste-parse.ts  reads a pasted or uploaded recipient list
 src/lib/logo.ts    logo positions, shared by the web page and the print sheet
 src/app/c/         the public certificate page and its printable version

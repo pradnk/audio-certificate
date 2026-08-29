@@ -7,9 +7,27 @@ import { setEventArchived, updateEvent, type EventSettings } from '@/app/admin/a
 import { LogoPicker } from '@/components/logo-picker';
 import { PartnerLogosPicker } from '@/components/partner-logos-picker';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
-import { DEFAULT_AWARDS, normaliseAwards } from '@/lib/awards';
+import {
+  CERTIFICATE_LAYOUTS,
+  PARTNER_LOGO_POSITIONS,
+  normalisePartnerLabel,
+} from '@/lib/certificate-layout';
+import { DEFAULT_AWARDS, type AwardCategory } from '@/lib/awards';
 import type { Event, TemplateSet } from '@/lib/db/schema';
 import { normalisePartnerLogos } from '@/lib/partners';
+import { normalisePrintWording, type PrintWording } from '@/lib/print-wording';
+import {
+  SPOKEN_FIELDS,
+  type SpokenField,
+  type SpokenOverrides as SpokenOverrideMap,
+  type WordingOverrides,
+} from '@/lib/wording';
+import {
+  MAX_RECIPIENT_TYPES,
+  newRecipientTypeId,
+  normaliseRecipientTypes,
+  type RecipientType,
+} from '@/lib/recipient-types';
 import type { ElevenLabsVoice } from '@/lib/elevenlabs';
 import {
   DEFAULT_TEMPLATES,
@@ -61,6 +79,63 @@ const TEMPLATE_FIELDS: Array<{
     label: 'Closing line',
     hint: 'Spoken over the applause. Also the same for every student.',
     rows: 2,
+  },
+];
+
+/**
+ * The printed sheet's wording, in the order it appears on the page.
+ *
+ * `only` marks a field the classic layout has no slot for, so the form can say
+ * so rather than letting somebody write a recognition paragraph that never
+ * appears anywhere.
+ */
+const WORDING_FIELDS: Array<{
+  key: keyof PrintWording;
+  label: string;
+  hint: string;
+  rows: number;
+  centredOnly?: boolean;
+}> = [
+  {
+    key: 'title',
+    label: 'Title across the top',
+    hint: 'Printed in capitals. Leave it empty for no title at all.',
+    rows: 1,
+    centredOnly: true,
+  },
+  {
+    key: 'lead',
+    label: 'Line above the name',
+    hint: 'The one line both layouts print.',
+    rows: 1,
+  },
+  {
+    key: 'fromLine',
+    label: 'Where they are from',
+    hint: 'Anything in [[double brackets]] disappears when its details are missing, so a recipient with no school recorded gets no line at all rather than a bare “from”.',
+    rows: 1,
+    centredOnly: true,
+  },
+  {
+    key: 'recognition',
+    label: 'What the certificate is for',
+    hint: 'The paragraph under the name. Used by any group that has not been given its own line under Who is being recognised.',
+    rows: 3,
+    centredOnly: true,
+  },
+  {
+    key: 'closing',
+    label: 'Parting line (optional)',
+    hint: 'Something to send them off with. Leave it empty to print nothing.',
+    rows: 2,
+    centredOnly: true,
+  },
+  {
+    key: 'signature',
+    label: 'Signed off at the foot',
+    hint: 'Bottom left of the sheet, e.g. “For Vividha Trust”.',
+    rows: 1,
+    centredOnly: true,
   },
 ];
 
@@ -119,6 +194,8 @@ function VoiceTest({ voiceId, modelId }: { voiceId: string; modelId: string }) {
 }
 
 const TOKENS = [
+  '{{role}}',
+  '{{Role}}',
   '{{event}}',
   '{{org}}',
   '{{name}}',
@@ -156,11 +233,15 @@ export function SettingsForm({
     logoUrl: event.logoUrl,
     logoPosition: event.logoPosition,
     templates: event.templates,
-    // The stored list as it is, not `awardsFor` -- an event whose categories
-    // have been cleared should look cleared here, even though the add-student
-    // screens fall back to the standard list rather than offering nothing.
-    awards: event.awards,
+    // The stored list as it is, not `recipientTypesFor` -- an event whose types
+    // have been cleared should look cleared here, even though the add screens
+    // fall back to a default rather than offering nothing.
+    recipientTypes: event.recipientTypes,
     partnerLogos: event.partnerLogos,
+    partnerLogoPosition: event.partnerLogoPosition,
+    partnerLabel: event.partnerLabel,
+    certificateLayout: event.certificateLayout,
+    printWording: event.printWording,
   });
 
   const archived = Boolean(event.archivedAt);
@@ -184,6 +265,14 @@ export function SettingsForm({
     setSaved(false);
   };
 
+  const updateWording = (field: keyof PrintWording, value: string) => {
+    setSettings((current) => ({
+      ...current,
+      printWording: { ...current.printWording, [field]: value },
+    }));
+    setSaved(false);
+  };
+
   const save = () => {
     setError('');
 
@@ -193,8 +282,10 @@ export function SettingsForm({
     // "Saved.", which reads as the save not having taken.
     const cleaned: EventSettings = {
       ...settings,
-      awards: normaliseAwards(settings.awards),
+      recipientTypes: normaliseRecipientTypes(settings.recipientTypes),
       partnerLogos: normalisePartnerLogos(settings.partnerLogos),
+      partnerLabel: normalisePartnerLabel(settings.partnerLabel),
+      printWording: normalisePrintWording(settings.printWording),
     };
     setSettings(cleaned);
 
@@ -281,16 +372,101 @@ export function SettingsForm({
       </Card>
 
       <Card>
-        <h2 className="mb-5 text-xl font-bold">Logo</h2>
+        <h2 className="mb-2 text-xl font-bold">Your organisation&apos;s logo</h2>
+        <p className="mb-5 text-ink-soft">
+          The mark of whoever is presenting the award — {settings.orgName || 'your organisation'}.
+          Anyone helping to run the event goes under <strong>Other organisations</strong> below
+          instead, where they get a row of their own.
+        </p>
         <LogoPicker
           logoUrl={settings.logoUrl}
           logoPosition={settings.logoPosition}
+          layout={settings.certificateLayout}
           disabled={archived}
           onChange={(next) => {
             setSettings((current) => ({ ...current, ...next }));
             setSaved(false);
           }}
         />
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-xl font-bold">The printed certificate</h2>
+        <p className="mb-5 text-ink-soft">
+          How the sheet is arranged, and the words on it. None of this is spoken — the recording is
+          set under <strong>What the certificate says</strong> further down, and changing anything
+          here never means remaking audio.
+        </p>
+
+        <div className="mb-6 flex flex-col gap-3">
+          {CERTIFICATE_LAYOUTS.map((layout) => (
+            <label
+              key={layout.value}
+              className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-line p-4 has-checked:border-teal-800 has-checked:bg-teal-50"
+            >
+              <input
+                type="radio"
+                name="certificateLayout"
+                className="mt-1 size-5"
+                value={layout.value}
+                checked={settings.certificateLayout === layout.value}
+                onChange={() => update('certificateLayout', layout.value)}
+              />
+              <span>
+                <span className="block font-bold">{layout.label}</span>
+                <span className="block text-ink-soft">{layout.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-5">
+          {WORDING_FIELDS.map((field) => {
+            const unused = field.centredOnly && settings.certificateLayout !== 'centred';
+            return (
+              <Field
+                key={field.key}
+                id={`wording-${field.key}`}
+                label={field.label}
+                hint={unused ? `${field.hint} Not printed by the classic layout.` : field.hint}
+              >
+                {(props) => (
+                  <Textarea
+                    {...props}
+                    rows={field.rows}
+                    value={settings.printWording[field.key]}
+                    onChange={(e) => updateWording(field.key, e.target.value)}
+                    className={unused ? 'opacity-60' : undefined}
+                    dir="auto"
+                  />
+                )}
+              </Field>
+            );
+          })}
+        </div>
+
+        <details className="mt-5">
+          <summary className="min-h-11 cursor-pointer font-bold text-teal-900">
+            Placeholders you can use
+          </summary>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {TOKENS.map((token) => (
+              <li key={token} className="rounded bg-paper-sunk px-2 py-1 font-mono text-sm">
+                {token}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-ink-soft">
+            <code className="font-mono">{'{{role}}'}</code> is the group&apos;s own name in lower
+            case — “student”, “teacher” — and{' '}
+            <code className="font-mono">{'{{Role}}'}</code> is it capitalised, for the start of a
+            sentence.
+          </p>
+          <p className="mt-3 text-ink-soft">
+            <code className="font-mono">{'{{location}}'}</code> is the school and the city together,
+            so one line covers a recipient with both, with only one, or with neither.
+          </p>
+        </details>
       </Card>
 
       <Card>
@@ -305,6 +481,51 @@ export function SettingsForm({
           disabled={archived}
           onChange={(next) => update('partnerLogos', next)}
         />
+
+        {settings.partnerLogos.length > 0 && (
+          <div className="mt-6 grid gap-5 border-t-2 border-line pt-6 sm:grid-cols-2">
+            <Field
+              id="partnerLogoPosition"
+              label="Where they sit"
+              hint="On the printed certificate. On the certificate page they always follow the closing line."
+            >
+              {(props) => (
+                <Select
+                  {...props}
+                  value={settings.partnerLogoPosition}
+                  onChange={(e) =>
+                    update(
+                      'partnerLogoPosition',
+                      e.target.value as typeof settings.partnerLogoPosition,
+                    )
+                  }
+                >
+                  {PARTNER_LOGO_POSITIONS.map((position) => (
+                    <option key={position.value} value={position.value}>
+                      {position.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+
+            <Field
+              id="partnerLabel"
+              label="Words above them (optional)"
+              hint="Leave it empty for logos and nothing else. Never used when they sit at the top, where a caption would read as a stray heading."
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  value={settings.partnerLabel}
+                  onChange={(e) => update('partnerLabel', e.target.value)}
+                  autoComplete="off"
+                  placeholder="Presented by"
+                />
+              )}
+            </Field>
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -436,16 +657,24 @@ export function SettingsForm({
       </Card>
 
       <Card>
-        <h2 className="mb-2 text-xl font-bold">Prize categories</h2>
+        <h2 className="mb-2 text-xl font-bold">Who is being recognised</h2>
         <p className="mb-5 text-ink-soft">
-          The prizes this event hands out. They are offered when you add someone, and a pasted
-          spreadsheet is checked against them — so a column reading “first prize” is corrected to
-          the spelling you set here before it is printed and spoken.
+          Most events honour more than one group — the students who took part, and the teachers who
+          got them there. Each group has its own prizes, offered when you add someone of that kind
+          and used to check a pasted spreadsheet, so “first prize” is corrected to the spelling you
+          set here before it is printed and spoken.
         </p>
-        <AwardCategories
-          awards={settings.awards}
+        <p className="mb-5 text-ink-soft">
+          Each group can also say what it is being recognised <em>for</em>, since a teacher who
+          guided students is not being thanked for the same thing they are. Leave that box empty and
+          the group uses the shared line. The rest of the wording is common to everybody — put{' '}
+          <code className="font-mono">{'{{role}}'}</code> in it where the group&apos;s own name
+          belongs.
+        </p>
+        <RecipientTypes
+          types={settings.recipientTypes}
           disabled={archived}
-          onChange={(next) => update('awards', next)}
+          onChange={(next) => update('recipientTypes', next)}
         />
       </Card>
 
@@ -532,6 +761,13 @@ export function SettingsForm({
           ))}
         </div>
 
+        <SpokenOverrides
+          types={settings.recipientTypes}
+          language={activeLanguage}
+          shared={activeTemplates}
+          onChange={(next) => update('recipientTypes', next)}
+        />
+
         <details className="mt-5">
           <summary className="min-h-11 cursor-pointer font-bold text-teal-900">
             Placeholders you can use
@@ -575,17 +811,285 @@ export function SettingsForm({
  * file, and a stray blank line in a textarea silently becomes a nameless prize.
  * Blank rows here are simply dropped when the list is saved.
  */
-function AwardCategories({
-  awards,
+/**
+ * Edits the groups an event honours and the prizes each of them gets.
+ *
+ * A group is a label plus a prize list, so this is mostly a wrapper around the
+ * prize editor that already existed -- an event with one group looks and works
+ * exactly as it did before types were a thing, which is the point.
+ */
+/**
+ * Different spoken words for a group, or for one of its prizes.
+ *
+ * Sits inside the wording card so that the language tabs above drive it: an
+ * override belongs to one language, because the voice engine decides what
+ * language to speak from the words themselves and a stray English sentence in
+ * a Hindi recording is not a translation slip but a change of language
+ * mid-certificate.
+ *
+ * Every level is optional and every beat within it is optional too, so a group
+ * that only wants a different citation writes that one line and inherits the
+ * other four.
+ */
+function SpokenOverrides({
+  types,
+  language,
+  shared,
+  onChange,
+}: {
+  types: RecipientType[];
+  language: string;
+  shared: TemplateSet;
+  onChange: (next: RecipientType[]) => void;
+}) {
+  if (types.length === 0) return null;
+
+  const patchType = (typeIndex: number, changes: Partial<RecipientType>) =>
+    onChange(types.map((type, i) => (i === typeIndex ? { ...type, ...changes } : type)));
+
+  const setSpoken = (
+    current: WordingOverrides,
+    field: SpokenField,
+    text: string,
+  ): SpokenOverrideMap => ({
+    ...current.spoken,
+    [language]: { ...current.spoken?.[language], [field]: text },
+  });
+
+  // Each group, then each of its prizes: the levels a certificate resolves
+  // through, listed in the order it tries them.
+  const levels = types.flatMap((type, typeIndex) => [
+    {
+      key: `type-${type.id}`,
+      title: `${type.label || 'Unnamed group'} — every prize`,
+      inherits: "the event's wording above",
+      value: type as WordingOverrides,
+      apply: (field: SpokenField, text: string) =>
+        patchType(typeIndex, { spoken: setSpoken(type, field, text) }),
+    },
+    ...type.awards.map((award, awardIndex) => ({
+      key: `award-${type.id}-${awardIndex}`,
+      title: `${type.label || 'Unnamed group'} · ${award.name || 'Unnamed prize'}`,
+      inherits: `${type.label || 'the group'}'s wording, then the event's`,
+      value: award as WordingOverrides,
+      apply: (field: SpokenField, text: string) =>
+        patchType(typeIndex, {
+          awards: type.awards.map((entry, i) =>
+            i === awardIndex ? { ...entry, spoken: setSpoken(entry, field, text) } : entry,
+          ),
+        }),
+    })),
+  ]);
+
+  return (
+    <div className="mt-6 border-t-2 border-line pt-6">
+      <h3 className="mb-2 text-lg font-bold">Different words for some groups or prizes</h3>
+      <p className="mb-4 text-ink-soft">
+        Anything left empty is spoken exactly as written above. These are the{' '}
+        <strong>{languageLabel(language)}</strong> words — a certificate in another language uses
+        that language&apos;s wording, so fill these in for each language you actually use.
+      </p>
+
+      <div className="flex flex-col gap-3">
+        {levels.map((level) => {
+          const set = level.value.spoken?.[language] ?? {};
+          const filled = SPOKEN_FIELDS.filter((field) => set[field]?.trim()).length;
+          return (
+            <details key={level.key} className="rounded-lg border-2 border-line p-4" open={filled > 0}>
+              <summary className="min-h-11 cursor-pointer font-bold text-teal-900">
+                {level.title}
+                {filled > 0 ? ` — ${filled} line${filled === 1 ? '' : 's'} of its own` : ''}
+              </summary>
+              <div className="mt-4 flex flex-col gap-4">
+                {TEMPLATE_FIELDS.map((field) => (
+                  <Field
+                    key={field.key}
+                    id={`spoken-${level.key}-${field.key}-${language}`}
+                    label={field.label}
+                    hint={`Leave empty to use ${level.inherits}.`}
+                  >
+                    {(props) => (
+                      <Textarea
+                        {...props}
+                        rows={field.rows}
+                        value={set[field.key] ?? ''}
+                        onChange={(e) => level.apply(field.key, e.target.value)}
+                        placeholder={shared[field.key]}
+                        dir="auto"
+                      />
+                    )}
+                  </Field>
+                ))}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The two printed lines a prize category or a group may say for itself.
+ *
+ * The other four -- the title, the lead-in, the "from" line and the sign-off --
+ * read the same whoever the certificate is for, so they stay on the event and
+ * are not repeated here.
+ */
+function PrintedOverrideFields({
+  idPrefix,
+  subject,
+  inheritsFrom,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  subject: string;
+  inheritsFrom: string;
+  value: { recognition?: string; closing?: string };
+  onChange: (changes: { recognition?: string; closing?: string }) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <Field
+        id={`${idPrefix}-recognition`}
+        label={`What ${subject} is recognised for`}
+        hint={`Printed under the prize. Leave it empty and ${inheritsFrom} is used.`}
+      >
+        {(props) => (
+          <Textarea
+            {...props}
+            rows={3}
+            value={value.recognition ?? ''}
+            onChange={(e) => onChange({ recognition: e.target.value })}
+            dir="auto"
+          />
+        )}
+      </Field>
+      <Field
+        id={`${idPrefix}-closing`}
+        label="Parting line"
+        hint={`The last line on the sheet. Leave it empty and ${inheritsFrom} is used — worth setting when the shared one is addressed to somebody else, as “keep experimenting” is to a teacher.`}
+      >
+        {(props) => (
+          <Textarea
+            {...props}
+            rows={2}
+            value={value.closing ?? ''}
+            onChange={(e) => onChange({ closing: e.target.value })}
+            dir="auto"
+          />
+        )}
+      </Field>
+    </div>
+  );
+}
+
+function RecipientTypes({
+  types,
   disabled,
   onChange,
 }: {
-  awards: string[];
+  types: RecipientType[];
   disabled: boolean;
-  onChange: (next: string[]) => void;
+  onChange: (next: RecipientType[]) => void;
 }) {
-  const replace = (index: number, value: string) =>
-    onChange(awards.map((award, position) => (position === index ? value : award)));
+  const patch = (index: number, changes: Partial<RecipientType>) =>
+    onChange(types.map((type, position) => (position === index ? { ...type, ...changes } : type)));
+
+  const remove = (index: number) => onChange(types.filter((_, position) => position !== index));
+
+  const add = () => {
+    const label = '';
+    // The id is fixed now and never rewritten afterwards, so that renaming the
+    // group later does not orphan the certificates already filed under it.
+    onChange([...types, { id: newRecipientTypeId(`type-${types.length + 1}`, types), label, awards: [] }]);
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      {types.map((type, index) => (
+        <div key={type.id} className="rounded-lg border-2 border-line p-5">
+          <div className="mb-5 flex flex-wrap items-end gap-4">
+            <div className="min-w-56 flex-1">
+              <Field
+                id={`recipient-type-${type.id}`}
+                label="This group is called"
+                hint="Singular, as it would read mid-sentence — “student”, “teacher”, “volunteer”."
+                error={type.label.trim() ? undefined : 'Needed — a group with no name is dropped when you save.'}
+              >
+                {(props) => (
+                  <Input
+                    {...props}
+                    value={type.label}
+                    onChange={(e) => patch(index, { label: e.target.value })}
+                    autoComplete="off"
+                    placeholder="Student"
+                  />
+                )}
+              </Field>
+            </div>
+            {types.length > 1 && (
+              <Button
+                variant="danger"
+                onClick={() => remove(index)}
+                disabled={disabled}
+                aria-label={`Remove the ${type.label.trim() || `group ${index + 1}`} group`}
+              >
+                Remove group
+              </Button>
+            )}
+          </div>
+
+          <p className="mb-3 font-bold">
+            Prizes for {type.label.trim() ? `each ${type.label.trim().toLowerCase()}` : 'this group'}
+          </p>
+          <AwardCategories
+            awards={type.awards}
+            idPrefix={`award-${type.id}`}
+            disabled={disabled}
+            onChange={(next) => patch(index, { awards: next })}
+          />
+
+          <div className="mt-5">
+            <PrintedOverrideFields
+              idPrefix={`recipient-${type.id}`}
+              subject={`a ${type.label.trim().toLowerCase() || 'certificate in this group'}`}
+              inheritsFrom="the event's shared line"
+              value={type}
+              onChange={(changes) => patch(index, changes)}
+            />
+          </div>
+        </div>
+      ))}
+
+      {types.length < MAX_RECIPIENT_TYPES && (
+        <Button variant="secondary" onClick={add} disabled={disabled} className="self-start">
+          Add another group
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function AwardCategories({
+  awards,
+  idPrefix,
+  disabled,
+  onChange,
+}: {
+  awards: AwardCategory[];
+  /**
+   * Namespaces the field ids. This list is rendered once per group, so an id
+   * built from the row's index alone repeats across groups -- and a duplicated
+   * id silently points the second group's labels at the first group's inputs.
+   */
+  idPrefix: string;
+  disabled: boolean;
+  onChange: (next: AwardCategory[]) => void;
+}) {
+  const patch = (index: number, changes: Partial<AwardCategory>) =>
+    onChange(awards.map((award, position) => (position === index ? { ...award, ...changes } : award)));
 
   const remove = (index: number) => onChange(awards.filter((_, position) => position !== index));
 
@@ -593,55 +1097,89 @@ function AwardCategories({
   // than letting a category quietly disappear.
   const duplicates = new Set(
     awards
-      .map((award) => award.trim().toLowerCase())
-      .filter((award, index, all) => award && all.indexOf(award) !== index),
+      .map((award) => award.name.trim().toLowerCase())
+      .filter((name, index, all) => name && all.indexOf(name) !== index),
   );
 
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
-        {awards.map((award, index) => (
-          <li key={index} className="flex items-start gap-3">
-            <div className="flex-1">
-              <Input
-                value={award}
-                onChange={(e) => replace(index, e.target.value)}
-                aria-label={`Prize category ${index + 1}`}
-                aria-invalid={duplicates.has(award.trim().toLowerCase()) || undefined}
-                autoComplete="off"
-                placeholder="Best Team Effort"
-              />
-              {duplicates.has(award.trim().toLowerCase()) && (
-                <p className="mt-1 text-sm text-danger">
-                  Already in the list — the repeat will be dropped when you save.
-                </p>
-              )}
-            </div>
-            <Button
-              variant="danger"
-              onClick={() => remove(index)}
-              aria-label={`Remove ${award.trim() || `prize category ${index + 1}`}`}
-            >
-              Remove
-            </Button>
-          </li>
-        ))}
+        {awards.map((award, index) => {
+          const duplicate = duplicates.has(award.name.trim().toLowerCase());
+          return (
+            <li key={index} className="flex flex-col gap-2">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <Input
+                    value={award.name}
+                    onChange={(e) => patch(index, { name: e.target.value })}
+                    aria-label={`Prize category ${index + 1}`}
+                    aria-invalid={duplicate || undefined}
+                    autoComplete="off"
+                    placeholder="Best Team Effort"
+                  />
+                  {duplicate && (
+                    <p className="mt-1 text-sm text-danger">
+                      Already in the list — the repeat will be dropped when you save.
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="danger"
+                  onClick={() => remove(index)}
+                  aria-label={`Remove ${award.name.trim() || `prize category ${index + 1}`}`}
+                >
+                  Remove
+                </Button>
+              </div>
+
+              {/*
+                Folded away by default. Most prizes want the group's line, and a
+                textarea under every one of five categories would bury the list
+                it belongs to. The summary says when one is set, so a filled-in
+                line is never hidden.
+              */}
+              <details
+                className="ml-1"
+                open={Boolean(award.recognition?.trim() || award.closing?.trim())}
+              >
+                <summary className="min-h-11 cursor-pointer text-teal-900">
+                  {award.recognition?.trim() || award.closing?.trim()
+                    ? 'Has its own wording'
+                    : 'Give this prize its own wording'}
+                </summary>
+                <div className="mt-2">
+                  <PrintedOverrideFields
+                    idPrefix={`${idPrefix}-${index}`}
+                    subject={award.name.trim() || 'this prize'}
+                    inheritsFrom="the group's line"
+                    value={award}
+                    onChange={(changes) => patch(index, changes)}
+                  />
+                </div>
+              </details>
+            </li>
+          );
+        })}
       </ul>
 
       {awards.length === 0 && (
         <p className="rounded-lg border-2 border-line bg-paper-sunk px-4 py-3 text-ink-soft">
-          No categories yet, so the standard list is offered instead. Add your own below to replace
-          it.
+          No prizes yet for this group.
         </p>
       )}
 
       <div className="flex flex-wrap gap-3">
-        <Button variant="secondary" onClick={() => onChange([...awards, ''])} disabled={disabled}>
+        <Button
+          variant="secondary"
+          onClick={() => onChange([...awards, { name: '', recognition: '' }])}
+          disabled={disabled}
+        >
           Add a category
         </Button>
         <Button
           variant="quiet"
-          onClick={() => onChange([...DEFAULT_AWARDS])}
+          onClick={() => onChange(DEFAULT_AWARDS.map((name) => ({ name, recognition: '' })))}
           disabled={disabled}
           className="px-2"
         >

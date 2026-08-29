@@ -1,6 +1,15 @@
-import { DEFAULT_AWARDS } from '@/lib/awards';
+import {
+  DEFAULT_CERTIFICATE_LAYOUT,
+  DEFAULT_PARTNER_LABEL,
+  DEFAULT_PARTNER_LOGO_POSITION,
+  type CertificateLayout,
+  type PartnerLogoPosition,
+} from '@/lib/certificate-layout';
 import type { LogoPosition } from '@/lib/logo';
 import type { PartnerLogo } from '@/lib/partners';
+import { defaultRecipientTypes, type RecipientType } from '@/lib/recipient-types';
+import type { TemplateSet } from '@/lib/wording';
+import { DEFAULT_PRINT_WORDING, type PrintWording } from '@/lib/print-wording';
 import {
   boolean,
   index,
@@ -50,7 +59,15 @@ export const events = pgTable('events', {
    * a pasted spreadsheet is spell-checked against. Certificates still store
    * free text, so a one-off award never needs a settings change first.
    */
-  awards: jsonb('awards').$type<string[]>().notNull().default([...DEFAULT_AWARDS]),
+  /**
+   * The groups this event gives certificates to, each with its own prize
+   * categories. See lib/recipient-types.ts. Replaced a single `awards` list
+   * when teachers started being recognised alongside students.
+   */
+  recipientTypes: jsonb('recipient_types')
+    .$type<RecipientType[]>()
+    .notNull()
+    .default(defaultRecipientTypes()),
 
   /**
    * Co-organisers and supporters, shown as a row of logos at the foot of the
@@ -60,6 +77,33 @@ export const events = pgTable('events', {
    * nothing to do with an award is worse than crediting nobody.
    */
   partnerLogos: jsonb('partner_logos').$type<PartnerLogo[]>().notNull().default([]),
+
+  /**
+   * Where the partner logos sit on the sheet, and what is written above them.
+   * An empty label means no label at all, which is what a header row wants.
+   */
+  partnerLogoPosition: text('partner_logo_position')
+    .$type<PartnerLogoPosition>()
+    .notNull()
+    .default(DEFAULT_PARTNER_LOGO_POSITION),
+  partnerLabel: text('partner_label').notNull().default(DEFAULT_PARTNER_LABEL),
+
+  /**
+   * Which arrangement the printed certificate uses. See lib/certificate-layout.ts.
+   *
+   * Defaults to the original so that an event which has already handed out
+   * certificates keeps printing the same ones.
+   */
+  certificateLayout: text('certificate_layout')
+    .$type<CertificateLayout>()
+    .notNull()
+    .default(DEFAULT_CERTIFICATE_LAYOUT),
+
+  /**
+   * The words on the printed sheet, as opposed to `templates` above, which is
+   * what gets spoken. See lib/print-wording.ts.
+   */
+  printWording: jsonb('print_wording').$type<PrintWording>().notNull().default(DEFAULT_PRINT_WORDING),
 
   voiceId: text('voice_id').notNull(),
   /** A specific model id, or "auto" to choose per language. See lib/languages.ts. */
@@ -110,6 +154,12 @@ export const certificates = pgTable(
     projectTitle: text('project_title'),
     projectBlurb: text('project_blurb'),
     award: text('award').notNull(),
+    /**
+     * Which of the event's recipient types this is, by id. Empty means the
+     * first one, which is what every certificate created before types existed
+     * is treated as.
+     */
+    recipientType: text('recipient_type').notNull().default(''),
     language: text('language').notNull().default('en-IN'),
 
     audioUrl: text('audio_url'),
@@ -162,13 +212,7 @@ export const ttsCache = pgTable(
 );
 
 /** The five pieces of wording that make up a certificate, in one language. */
-export type TemplateSet = {
-  intro: string;
-  awardLine: string;
-  citation: string;
-  prize: string;
-  closing: string;
-};
+export type { TemplateSet };
 
 /** A single spoken clip within a certificate. */
 export type ScriptSegment = {

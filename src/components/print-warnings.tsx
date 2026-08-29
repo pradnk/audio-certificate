@@ -19,7 +19,7 @@ export function PrintWarnings({
   /** Names whose audio has not been generated yet. */
   notReady: string[];
 }) {
-  const overflowing = useOverflowingCertificates();
+  const { overflowing, stubborn } = usePrintFit();
   const host = safeHost(url);
 
   // localhost resolves to whatever device is scanning, so the code can never
@@ -44,7 +44,8 @@ export function PrintWarnings({
     !isPrivateNetwork &&
     !isPerDeployment &&
     notReady.length === 0 &&
-    overflowing.length === 0
+    overflowing.length === 0 &&
+    stubborn.length === 0
   ) {
     return null;
   }
@@ -115,11 +116,28 @@ export function PrintWarnings({
             one sheet.
           </p>
           <p className="mt-2">
-            The content runs past the border and will spill onto a second page. Usually it is a very
-            long name, or a description of several lines — shorten the description on the students
-            page, and the rest will fall back into place.
+            The content runs past the border and will spill onto a second page. Most often it is a
+            name long enough to wrap onto a second line, which costs more room than anything else on
+            the sheet. It can also be a description, or a paragraph in the printed wording, running
+            to several lines — shorten those on the recipients page or in Settings.
           </p>
           <p className="mt-2 font-bold">{overflowing.join(', ')}</p>
+        </div>
+      )}
+
+      {stubborn.length > 0 && (
+        <div className="rounded-lg border-2 border-focus bg-teal-50 px-5 py-4">
+          <p className="text-lg font-bold">
+            {stubborn.length} line{stubborn.length === 1 ? '' : 's'} would not fit on one line, even
+            made smaller.
+          </p>
+          <p className="mt-2">
+            Taali shrinks a long name or school line a little so that it stays on one line and the
+            certificate still matches the rest of the pile. These went past what that can rescue, so
+            they will wrap. Shortening them on the recipients page — dropping a middle name, or the
+            city — is usually all it takes.
+          </p>
+          <p className="mt-2 font-bold">{stubborn.join(', ')}</p>
         </div>
       )}
 
@@ -130,7 +148,7 @@ export function PrintWarnings({
           </p>
           <p className="mt-2">
             Scanning {notReady.length === 1 ? 'its' : 'their'} QR code will reach the page, but there
-            will be nothing to listen to. Make the audio first, on the students page.
+            will be nothing to listen to. Make the audio first, on the recipients page.
           </p>
           <p className="mt-2 font-bold">{notReady.join(', ')}</p>
         </div>
@@ -140,23 +158,111 @@ export function PrintWarnings({
 }
 
 /**
- * Names of the certificates whose content runs past the printed frame.
+ * The smallest a fitted line may get, as a fraction of its designed size.
  *
- * The sheet is a fixed 297x210mm with no overflow guard, so a name that wraps
- * to two lines or a long description silently produces a second, mostly-empty
- * page -- and nobody finds out until forty of them are on the printer. Measured
- * rather than estimated because the only honest answer comes from the browser
- * that is about to do the printing.
+ * Three fifths, measured rather than guessed: a 44-character name needs about
+ * 65% of the designed size to sit on one line, so a tighter floor would refuse
+ * to fit names that are merely long. At 60% the name is still the largest thing
+ * on the sheet by some way. Below that it stops matching the rest of the pile
+ * and starts looking like a mistake, so past that point it is better to say so
+ * and let somebody shorten the name.
  */
-function useOverflowingCertificates(): string[] {
-  const [names, setNames] = useState<string[]>([]);
+const MIN_FIT_SCALE = 0.6;
+
+/**
+ * Squeezes the marked lines onto one line each.
+ *
+ * A wrapped name is the single most expensive thing that can happen to one of
+ * these sheets -- at 44pt a second line costs about 17mm, more than any other
+ * block -- and it is also the ugliest, because that one certificate no longer
+ * matches the rest of the pile. Stepping the type down a few points for that
+ * sheet alone fixes both.
+ *
+ * Done in the browser rather than from the character count because the count
+ * says nothing useful: "Venkatanarasimharajuvaripeta" and a Kannada name of the
+ * same length occupy quite different widths, and only the browser about to
+ * print it knows which.
+ *
+ * Returns the lines it could not fit even at the floor.
+ */
+function fitLines(): string[] {
+  const stubborn: string[] = [];
+
+  for (const page of document.querySelectorAll('.certificate-page')) {
+    const name = page.querySelector('.certificate-name')?.textContent?.trim() ?? 'Unnamed';
+
+    for (const line of page.querySelectorAll<HTMLElement>('[data-fit]')) {
+      // The designed size is remembered on the element, so running this again
+      // -- and it runs again on every print -- measures from the original
+      // rather than compounding one shrink on top of the last.
+      const nominal = Number(line.dataset.fitNominal) || parseFloat(getComputedStyle(line).fontSize);
+      line.dataset.fitNominal = String(nominal);
+      line.style.fontSize = `${nominal}px`;
+
+      const linesUsed = () => {
+        const lineHeight = parseFloat(getComputedStyle(line).lineHeight) || nominal;
+        return Math.round(line.getBoundingClientRect().height / lineHeight);
+      };
+
+      if (linesUsed() <= 1) continue;
+
+      // One measurement gets most of the way there: with wrapping switched off,
+      // how much wider than its box does the line want to be? Measured with a
+      // Range over the text rather than from scrollWidth, which on a block with
+      // visible overflow reports the box rather than the content and quietly
+      // returns a ratio of 1 for a line that is half again too wide.
+      line.style.whiteSpace = 'nowrap';
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      const natural = range.getBoundingClientRect().width;
+      range.detach();
+      const available = line.clientWidth;
+      line.style.whiteSpace = '';
+
+      const floor = nominal * MIN_FIT_SCALE;
+      // A hair under the exact ratio, so rounding cannot leave it one pixel long.
+      let size = natural > 0 ? Math.max(floor, (nominal * available * 0.98) / natural) : nominal;
+      line.style.fontSize = `${size}px`;
+
+      // Then small steps until it fits or the floor stops us. Shrinking changes
+      // where the text would have broken, so the first guess is occasionally a
+      // shade generous; the floor guarantees this terminates.
+      while (linesUsed() > 1 && size > floor) {
+        size = Math.max(floor, size * 0.94);
+        line.style.fontSize = `${size}px`;
+      }
+
+      if (linesUsed() > 1) {
+        stubborn.push(
+          line.dataset.fit === 'name' ? name : `${name} — where they are from`,
+        );
+      }
+    }
+  }
+
+  return stubborn;
+}
+
+/**
+ * Fits the long lines, then reports what still does not fit on one sheet.
+ *
+ * The two belong together and in that order: fitting changes the height of the
+ * page, so measuring for overflow before it would condemn sheets that the fit
+ * was about to rescue.
+ */
+function usePrintFit(): { overflowing: string[]; stubborn: string[] } {
+  const [result, setResult] = useState<{ overflowing: string[]; stubborn: string[] }>({
+    overflowing: [],
+    stubborn: [],
+  });
 
   useEffect(() => {
     let cancelled = false;
 
-    const measure = () => {
+    const run = () => {
       if (cancelled) return;
-      const spilling = [...document.querySelectorAll('.certificate-page')]
+      const stubborn = fitLines();
+      const overflowing = [...document.querySelectorAll('.certificate-page')]
         .filter((page) => {
           const frame = page.querySelector('.certificate-frame');
           // A pixel of tolerance: sub-pixel rounding of millimetre units
@@ -167,7 +273,7 @@ function useOverflowingCertificates(): string[] {
           (page) =>
             page.querySelector('.certificate-name')?.textContent?.trim() || 'Unnamed certificate',
         );
-      setNames(spilling);
+      setResult({ overflowing, stubborn });
     };
 
     // Fonts and logos both change the height, and both land after first paint,
@@ -183,16 +289,20 @@ function useOverflowingCertificates(): string[] {
               image.addEventListener('error', () => resolve(), { once: true });
             }),
       ),
-    ]).then(measure);
+    ]).then(run);
 
-    window.addEventListener('resize', measure);
+    // Again just before the print dialog, in case somebody reached for it
+    // faster than the fonts loaded.
+    window.addEventListener('beforeprint', run);
+    window.addEventListener('resize', run);
     return () => {
       cancelled = true;
-      window.removeEventListener('resize', measure);
+      window.removeEventListener('beforeprint', run);
+      window.removeEventListener('resize', run);
     };
   }, []);
 
-  return names;
+  return result;
 }
 
 function safeHost(url: string): string {

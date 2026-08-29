@@ -20,7 +20,7 @@ const OPTION_LINK =
 export async function generateMetadata({ params }: PageProps<'/admin/events/[id]/students'>) {
   const { id } = await params;
   const event = await getEvent(id);
-  return { title: event ? `Students — ${event.name}` : 'Students' };
+  return { title: event ? `Recipients — ${event.name}` : 'Recipients' };
 }
 
 export default async function StudentsPage({ params }: PageProps<'/admin/events/[id]/students'>) {

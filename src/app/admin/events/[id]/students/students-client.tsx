@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 
-import { deleteCertificate, setReviewed } from '@/app/admin/actions';
-import { Alert, Button, Card, cx } from '@/components/ui';
-import { awardsFor } from '@/lib/awards';
+import { deleteCertificate, setReviewed, updateCertificatesBulk } from '@/app/admin/actions';
+import { Alert, Button, Card, Field, Select, cx } from '@/components/ui';
+import { recipientTypeFor, recipientTypesFor, type RecipientType } from '@/lib/recipient-types';
 import { mapLimit } from '@/lib/concurrency';
 import type { Certificate, Event } from '@/lib/db/schema';
 import { certificateFileBase } from '@/lib/filename';
@@ -16,7 +16,7 @@ import {
   generateCertificate,
   type GenerationStage,
 } from '@/lib/generate-client';
-import { languageLabel, modelSupportsSpeed, resolveModel } from '@/lib/languages';
+import { SUPPORTED_LANGUAGES, languageLabel, modelSupportsSpeed, resolveModel } from '@/lib/languages';
 import { AddStudents } from './add-students';
 
 /**
@@ -46,6 +46,7 @@ export function StudentsClient({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [batchRunning, setBatchRunning] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const cancelled = useRef(false);
 
   /**
@@ -68,6 +69,7 @@ export function StudentsClient({
    * event for -- but nothing that would change a certificate does.
    */
   const archived = Boolean(event.archivedAt);
+  const types = recipientTypesFor(event);
 
   const pending = rows.filter((row) => row.status !== 'ready');
   const ready = rows.filter((row) => row.status === 'ready' && row.audioUrl);
@@ -98,6 +100,38 @@ export function StudentsClient({
     [event.name, setRowState],
   );
 
+  const selectedRows = rows.filter((row) => selected.has(row.id));
+
+  const toggleSelected = (id: string, on: boolean) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  const selectAll = (on: boolean) =>
+    setSelected(on ? new Set(rows.map((row) => row.id)) : new Set());
+
+  const applyToSelected = async (changes: {
+    award?: string;
+    recipientType?: string;
+    language?: string;
+  }) => {
+    setError('');
+    setNotice('');
+    try {
+      const { updated } = await updateCertificatesBulk([...selected], changes);
+      setNotice(
+        `Changed ${updated} certificate${updated === 1 ? '' : 's'}. ` +
+          'They need making again — the recording no longer matches the details.',
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not change those.');
+    }
+  };
+
   const generateOne = async (row: Certificate) => {
     setError('');
     setNotice('');
@@ -105,14 +139,16 @@ export function StudentsClient({
     router.refresh();
   };
 
-  const generateAll = async () => {
-    if (pending.length === 0) return;
+  const generateAll = async (only?: Certificate[]) => {
+    // With rows ticked, the button acts on those and nothing else; with none
+    // ticked it means everything outstanding, as it always did.
+    const targets = only ?? [...pending];
+    if (targets.length === 0) return;
     setError('');
     setNotice('');
     setBatchRunning(true);
     cancelled.current = false;
 
-    const targets = [...pending];
     const results = await mapLimit(targets, BATCH_CONCURRENCY, async (row) => {
       if (cancelled.current) return null;
       return runOne(row);
@@ -201,7 +237,7 @@ export function StudentsClient({
 
       {archived ? (
         <p className="rounded-lg border-2 border-line bg-paper-sunk px-5 py-4 text-lg">
-          <strong>This event is marked complete.</strong> Students and certificates are locked. You
+          <strong>This event is marked complete.</strong> Recipients and certificates are locked. You
           can still download the audio, copy the links and print. To make changes, reopen the event
           in{' '}
           <Link
@@ -216,9 +252,9 @@ export function StudentsClient({
         <AddStudents
           eventId={event.id}
           defaultLanguage={event.defaultLanguage}
-          awards={awardsFor(event)}
+          types={types}
           onAdded={(count) => {
-            setNotice(`Added ${count} student${count === 1 ? '' : 's'}.`);
+            setNotice(`Added ${count} ${count === 1 ? 'person' : 'people'}.`);
             router.refresh();
           }}
         />
@@ -228,7 +264,7 @@ export function StudentsClient({
         <Card>
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <h2 className="mr-auto text-xl font-bold">
-              {rows.length} student{rows.length === 1 ? '' : 's'}
+              {rows.length} {rows.length === 1 ? 'recipient' : 'recipients'}
             </h2>
 
             {!archived && <NamePreviewAll rows={rows} event={event} onError={setError} />}
@@ -244,7 +280,7 @@ export function StudentsClient({
                 Stop
               </Button>
             ) : (
-              <Button onClick={generateAll} disabled={pending.length === 0}>
+              <Button onClick={() => generateAll()} disabled={pending.length === 0}>
                 {pending.length === 0
                   ? 'All certificates made'
                   : `Make ${pending.length} certificate${pending.length === 1 ? '' : 's'}`}
@@ -265,8 +301,22 @@ export function StudentsClient({
             </p>
           )}
 
+          {!archived && selectedRows.length > 0 && (
+            <BulkActions
+              types={types}
+              count={selectedRows.length}
+              busy={batchRunning}
+              onApply={applyToSelected}
+              onRegenerate={() => generateAll(selectedRows)}
+              onClear={() => setSelected(new Set())}
+            />
+          )}
+
           <StudentTable
             rows={rows}
+            selected={selected}
+            onToggleSelected={toggleSelected}
+            onSelectAll={selectAll}
             event={event}
             state={state}
             certificateUrl={certificateUrl}
@@ -292,9 +342,143 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-danger-bg text-danger',
 };
 
+/**
+ * What you can do to a batch of ticked rows.
+ *
+ * Appears only when something is ticked, and lists what will happen before it
+ * happens: a bulk change is the one action here that is hard to undo by hand,
+ * so it should never be a surprise.
+ *
+ * Each control applies on its own rather than there being one Apply button for
+ * all three. Changing the prize and the language at once is rare; being made to
+ * think about a language you did not mean to touch is not.
+ */
+function BulkActions({
+  types,
+  count,
+  busy,
+  onApply,
+  onRegenerate,
+  onClear,
+}: {
+  types: RecipientType[];
+  count: number;
+  busy: boolean;
+  onApply: (changes: { award?: string; recipientType?: string; language?: string }) => void;
+  onRegenerate: () => void;
+  onClear: () => void;
+}) {
+  const [award, setAward] = useState('');
+  const [typeId, setTypeId] = useState('');
+  const [language, setLanguage] = useState('');
+
+  // Every prize across every group: a selection can span groups, and the point
+  // of this bar is to move a batch onto the right one.
+  const awards = types.flatMap((type) =>
+    type.awards.map((entry) => ({ group: type.label, name: entry.name })),
+  );
+
+  const apply = (changes: Parameters<typeof onApply>[0], reset: () => void) => {
+    onApply(changes);
+    reset();
+  };
+
+  return (
+    <div className="mb-5 rounded-lg border-2 border-teal-800 bg-teal-50 p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <p className="mr-auto text-lg font-bold" aria-live="polite">
+          {count} selected
+        </p>
+        <Button variant="quiet" onClick={onClear} className="px-2">
+          Clear selection
+        </Button>
+      </div>
+
+      <p className="mb-4 text-ink-soft">
+        Changing any of these marks the certificates as needing to be made again — the recording
+        would otherwise say one thing while the page says another.
+      </p>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field id="bulk-award" label="Change the prize to">
+          {(props) => (
+            <Select
+              {...props}
+              value={award}
+              disabled={busy}
+              onChange={(e) => {
+                setAward(e.target.value);
+                if (e.target.value) apply({ award: e.target.value }, () => setAward(''));
+              }}
+            >
+              <option value="">Leave as it is</option>
+              {awards.map((entry) => (
+                <option key={`${entry.group}-${entry.name}`} value={entry.name}>
+                  {types.length > 1 ? `${entry.name} (${entry.group})` : entry.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        {types.length > 1 && (
+          <Field id="bulk-group" label="Move to group">
+            {(props) => (
+              <Select
+                {...props}
+                value={typeId}
+                disabled={busy}
+                onChange={(e) => {
+                  setTypeId(e.target.value);
+                  if (e.target.value) apply({ recipientType: e.target.value }, () => setTypeId(''));
+                }}
+              >
+                <option value="">Leave as it is</option>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+
+        <Field id="bulk-language" label="Change the language to">
+          {(props) => (
+            <Select
+              {...props}
+              value={language}
+              disabled={busy}
+              onChange={(e) => {
+                setLanguage(e.target.value);
+                if (e.target.value) apply({ language: e.target.value }, () => setLanguage(''));
+              }}
+            >
+              <option value="">Leave as it is</option>
+              {SUPPORTED_LANGUAGES.map((entry) => (
+                <option key={entry.tag} value={entry.tag}>
+                  {languageLabel(entry.tag)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+
+      <Button onClick={onRegenerate} disabled={busy} className="mt-4">
+        {busy ? 'Making…' : `Make these ${count} again`}
+      </Button>
+    </div>
+  );
+}
+
 function StudentTable({
   rows,
   event,
+  selected,
+  onToggleSelected,
+  onSelectAll,
   state,
   certificateUrl,
   onGenerate,
@@ -306,6 +490,9 @@ function StudentTable({
 }: {
   rows: Certificate[];
   event: Event;
+  selected: Set<string>;
+  onToggleSelected: (id: string, on: boolean) => void;
+  onSelectAll: (on: boolean) => void;
   state: Record<string, RowState>;
   certificateUrl: (row: Certificate) => string;
   onGenerate: (row: Certificate) => void;
@@ -315,15 +502,29 @@ function StudentTable({
   disabled: boolean;
   archived: boolean;
 }) {
+  const types = recipientTypesFor(event);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <caption className="sr-only-focusable">
-          Students in this event, with the state of each certificate.
+          Everyone in this event, with the state of each certificate.
         </caption>
         <thead>
           <tr className="border-b-2 border-line">
-            <th scope="col" className="py-2 pr-4">Student</th>
+            {!archived && (
+              <th scope="col" className="py-2 pr-3">
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={rows.length > 0 && rows.every((row) => selected.has(row.id))}
+                    onChange={(e) => onSelectAll(e.target.checked)}
+                  />
+                  <span className="sr-only-focusable">Select every recipient</span>
+                </label>
+              </th>
+            )}
+            <th scope="col" className="py-2 pr-4">Name</th>
             <th scope="col" className="py-2 pr-4">Award</th>
             <th scope="col" className="py-2 pr-4">State</th>
             <th scope="col" className="py-2 pr-4">Listened</th>
@@ -338,6 +539,19 @@ function StudentTable({
 
             return (
               <tr key={row.id} className="border-b border-line align-top">
+                {!archived && (
+                  <td className="py-3 pr-3">
+                    <label className="flex min-h-11 items-center">
+                      <input
+                        type="checkbox"
+                        className="size-5"
+                        checked={selected.has(row.id)}
+                        onChange={(e) => onToggleSelected(row.id, e.target.checked)}
+                        aria-label={`Select ${row.studentName}`}
+                      />
+                    </label>
+                  </td>
+                )}
                 <th scope="row" className="py-3 pr-4 font-normal">
                   <span className="block font-bold">{row.studentName}</span>
                   {row.namePronunciation && (
@@ -356,7 +570,14 @@ function StudentTable({
                   )}
                 </th>
 
-                <td className="py-3 pr-4">{row.award}</td>
+                <td className="py-3 pr-4">
+                  {row.award}
+                  {types.length > 1 && (
+                    <span className="block text-sm text-ink-soft">
+                      {recipientTypeFor(types, row.recipientType).label}
+                    </span>
+                  )}
+                </td>
 
                 <td className="py-3 pr-4">
                   <span

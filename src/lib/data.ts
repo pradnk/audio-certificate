@@ -3,11 +3,17 @@ import 'server-only';
 import { asc, desc, eq } from 'drizzle-orm';
 import { customAlphabet } from 'nanoid';
 
-import { DEFAULT_AWARDS } from '@/lib/awards';
+import {
+  DEFAULT_CERTIFICATE_LAYOUT,
+  DEFAULT_PARTNER_LABEL,
+  DEFAULT_PARTNER_LOGO_POSITION,
+} from '@/lib/certificate-layout';
 import { db } from '@/lib/db';
 import { certificates, events, type Event } from '@/lib/db/schema';
 import type { ElevenLabsVoice } from '@/lib/elevenlabs';
 import { DEFAULT_TEMPLATES, MODEL_AUTO } from '@/lib/languages';
+import { DEFAULT_PRINT_WORDING } from '@/lib/print-wording';
+import { defaultRecipientTypes } from '@/lib/recipient-types';
 
 /**
  * Certificate ids, deliberately drawn from an alphabet with no look-alike
@@ -93,8 +99,8 @@ export async function getCertificateByPublicId(publicId: string) {
 /**
  * The event most recently created, if any.
  *
- * A new event inherits its organisation name, wording, award categories,
- * partner logos, voice and language from this one. Almost every deployment runs the same event year after year, so
+ * A new event inherits its organisation name, wording, recipient types and
+ * their prizes, partner logos, printed layout, voice and language from this one. Almost every deployment runs the same event year after year, so
  * copying forward is what people expect -- and it means the generic starting
  * wording is only ever seen once, by whoever sets the tool up.
  */
@@ -116,8 +122,14 @@ export function newEventDefaults(
     slug,
     orgName: orgName?.trim() || previous?.orgName || '',
     templates: previous ? { ...previous.templates } : { ...DEFAULT_TEMPLATES },
-    awards: previous ? [...previous.awards] : [...DEFAULT_AWARDS],
+    recipientTypes: previous
+      ? previous.recipientTypes.map((type) => ({ ...type, awards: [...type.awards] }))
+      : defaultRecipientTypes(),
     partnerLogos: previous ? [...previous.partnerLogos] : [],
+    partnerLogoPosition: previous?.partnerLogoPosition ?? DEFAULT_PARTNER_LOGO_POSITION,
+    partnerLabel: previous?.partnerLabel ?? DEFAULT_PARTNER_LABEL,
+    certificateLayout: previous?.certificateLayout ?? DEFAULT_CERTIFICATE_LAYOUT,
+    printWording: previous ? { ...previous.printWording } : { ...DEFAULT_PRINT_WORDING },
     voiceId,
     modelId: previous?.modelId ?? MODEL_AUTO,
     defaultLanguage: previous?.defaultLanguage ?? 'en-IN',
