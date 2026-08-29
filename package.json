@@ -13,7 +13,8 @@
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "sample": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/render-sample-certificate.mts",
-    "sample:real": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/render-real-certificate.mts"
+    "sample:real": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/render-real-certificate.mts",
+    "seed:partners": "node --experimental-strip-types --import ./scripts/register-hook.mjs scripts/seed-partner-logos.mts"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

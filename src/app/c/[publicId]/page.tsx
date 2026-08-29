@@ -152,24 +152,52 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
           </Link>
         </p>
 
-        <footer
-          className={`mt-14 flex items-end gap-5 border-t-2 border-line pt-6 text-ink-soft ${
-            !logoAtTop && isLeft(event.logoPosition) ? 'flex-row-reverse justify-end' : ''
-          }`}
-        >
-          <div className="flex-1">
-          {/*
-            * No link to any particular organisation's website here. This page
-            * is rendered for whichever organisation presented the award, so a
-            * hardcoded one would send another charity's families somewhere
-            * else entirely.
-            */}
-          <p>
-            Presented by {event.orgName}
-            {event.venue && ` at ${event.venue}`}.
-          </p>
+        <footer className="mt-14 border-t-2 border-line pt-6 text-ink-soft">
+          <div
+            className={`flex items-end gap-5 ${
+              !logoAtTop && isLeft(event.logoPosition) ? 'flex-row-reverse justify-end' : ''
+            }`}
+          >
+            <div className="flex-1">
+              {/*
+                * No link to any particular organisation's website here. This page
+                * is rendered for whichever organisation presented the award, so a
+                * hardcoded one would send another charity's families somewhere
+                * else entirely.
+                */}
+              <p>
+                Presented by {event.orgName}
+                {event.venue && ` at ${event.venue}`}.
+              </p>
+            </div>
+            {!logoAtTop && logo}
           </div>
-          {!logoAtTop && logo}
+
+          {/*
+            No "Presented by" heading over this row, unlike the printed sheet:
+            the sentence directly above already says it, and repeating it would
+            have a screen reader read the phrase twice in a row. The logos read
+            as a continuation of that sentence.
+
+            Left-aligned rather than centred as on paper, because this page is a
+            single column of left-aligned text -- the same reasoning that makes
+            lib/logo.ts map printed corners onto bands here.
+          */}
+          {event.partnerLogos.length > 0 && (
+            <ul className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4">
+              {event.partnerLogos.map((partner) => (
+                <li key={partner.url}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob or static URL from an untyped host */}
+                  <img
+                    src={partner.url}
+                    /* A real alt: these names appear in no text on the page. */
+                    alt={partner.name}
+                    className="max-h-12 max-w-32 object-contain"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </footer>
       </article>
     </main>

@@ -32,7 +32,17 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={`${atkinson.variable} h-full`}>
-      <body className="flex min-h-full flex-col bg-paper text-ink antialiased">
+      {/*
+        Grammarly and similar extensions write their own attributes onto <body>
+        (`data-gr-ext-installed`, `data-new-gr-c-s-check-loaded`) before React
+        hydrates, which React reports as a hydration mismatch on every page.
+        Suppression applies to this element only, not its descendants, so a real
+        mismatch anywhere inside the app is still reported.
+      */}
+      <body
+        className="flex min-h-full flex-col bg-paper text-ink antialiased"
+        suppressHydrationWarning
+      >
         <a
           href="#main"
           className="sr-only-focusable absolute top-2 left-2 z-50 rounded bg-teal-900 px-4 py-2 font-bold text-white"

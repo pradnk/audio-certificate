@@ -3,6 +3,7 @@ import 'server-only';
 import { asc, desc, eq } from 'drizzle-orm';
 import { customAlphabet } from 'nanoid';
 
+import { DEFAULT_AWARDS } from '@/lib/awards';
 import { db } from '@/lib/db';
 import { certificates, events, type Event } from '@/lib/db/schema';
 import type { ElevenLabsVoice } from '@/lib/elevenlabs';
@@ -92,8 +93,8 @@ export async function getCertificateByPublicId(publicId: string) {
 /**
  * The event most recently created, if any.
  *
- * A new event inherits its organisation name, wording, voice and language from
- * this one. Almost every deployment runs the same event year after year, so
+ * A new event inherits its organisation name, wording, award categories,
+ * partner logos, voice and language from this one. Almost every deployment runs the same event year after year, so
  * copying forward is what people expect -- and it means the generic starting
  * wording is only ever seen once, by whoever sets the tool up.
  */
@@ -115,6 +116,8 @@ export function newEventDefaults(
     slug,
     orgName: orgName?.trim() || previous?.orgName || '',
     templates: previous ? { ...previous.templates } : { ...DEFAULT_TEMPLATES },
+    awards: previous ? [...previous.awards] : [...DEFAULT_AWARDS],
+    partnerLogos: previous ? [...previous.partnerLogos] : [],
     voiceId,
     modelId: previous?.modelId ?? MODEL_AUTO,
     defaultLanguage: previous?.defaultLanguage ?? 'en-IN',

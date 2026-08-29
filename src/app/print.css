@@ -35,7 +35,9 @@
   flex-direction: column;
   height: 100%;
   box-sizing: border-box;
-  padding: 10mm 12mm;
+  /* Bottom padding trimmed from 10mm to make room for the partner band below
+     the footer; the band's own margin restores the visual breathing space. */
+  padding: 9mm 12mm 6mm;
   border: 3mm solid #0b4f4d;
   border-radius: 4mm;
 }
@@ -72,7 +74,7 @@
   gap: 8mm;
   border-bottom: 1mm solid #0b4f4d;
   padding-bottom: 4mm;
-  margin-bottom: 8mm;
+  margin-bottom: 6mm;
 }
 
 .certificate-heading {
@@ -85,6 +87,9 @@
 .certificate-event {
   margin: 0;
   font-size: 22pt;
+  /* 1.15, not the 1.6 inherited from body copy: this is display type, and at
+     22pt the inherited value added 3mm of empty space above the rule. */
+  line-height: 1.15;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -94,12 +99,14 @@
 .certificate-org {
   margin: 1mm 0 0;
   font-size: 14pt;
+  line-height: 1.3;
   color: #3f5250;
 }
 
 .certificate-lead {
   margin: 0;
   font-size: 16pt;
+  line-height: 1.25;
   color: #3f5250;
 }
 
@@ -114,25 +121,27 @@
 }
 
 .certificate-detail {
-  margin: 3mm 0 0;
+  margin: 2mm 0 0;
   font-size: 16pt;
+  line-height: 1.25;
   color: #3f5250;
 }
 
 .certificate-award {
   display: inline-block;
   align-self: flex-start;
-  margin: 6mm 0 0;
+  margin: 4mm 0 0;
   padding: 2mm 5mm;
   border-radius: 2mm;
   background: #d6ecea;
   font-size: 26pt;
+  line-height: 1.2;
   font-weight: 700;
   color: #06302f;
 }
 
 .certificate-project {
-  margin: 5mm 0 0;
+  margin: 3mm 0 0;
   font-size: 15pt;
   line-height: 1.5;
   max-width: 200mm;
@@ -144,13 +153,14 @@
   justify-content: space-between;
   gap: 8mm;
   margin-top: auto;
-  padding-top: 6mm;
+  padding-top: 5mm;
   border-top: 0.5mm solid #c6d5d3;
 }
 
 .certificate-listen-title {
   margin: 0;
   font-size: 15pt;
+  line-height: 1.25;
   font-weight: 700;
 }
 
@@ -161,13 +171,6 @@
   max-width: 150mm;
 }
 
-.certificate-url {
-  margin: 2mm 0 0;
-  font-size: 13pt;
-  font-weight: 700;
-  word-break: break-all;
-}
-
 .certificate-qr {
   width: 32mm;
   height: 32mm;
@@ -175,6 +178,61 @@
 }
 
 /* Screen preview: show the sheet edges so the operator can see the page. */
+/*
+ * Co-organisers and supporters, at the foot of the sheet.
+ *
+ * The vertical budget here is real: the frame is a fixed 160mm and a typical
+ * certificate already spends ~143mm of it, so this band is costed at ~20mm and
+ * the space is bought back from the frame padding, the footer padding and the
+ * award and project margins above. A taller row would push a long name onto a
+ * second sheet.
+ *
+ * No rule above it. The footer's own border-top sits ~25mm higher and a second
+ * hairline that close reads as clutter rather than as structure.
+ */
+.certificate-partners {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7mm;
+  margin-top: 4mm;
+}
+
+/*
+ * The label sits on the row rather than above it. Stacked, it cost 4.7mm of a
+ * budget that only had 6mm in it, which forced the logos down to 10mm -- small
+ * enough that all three read as specks. Inline, the row is no taller than the
+ * logos themselves and they can be 14mm.
+ */
+.certificate-partners-label {
+  margin: 0;
+  font-size: 9pt;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3f5250;
+  flex-shrink: 0;
+}
+
+.certificate-partners-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7mm;
+}
+
+/*
+ * One rule for marks of very different shapes. A square logo is capped by the
+ * height, a wide wordmark by the width, so the three end up at roughly equal
+ * optical weight without per-logo tuning -- and adding a fourth needs no CSS.
+ */
+.certificate-partner-logo {
+  max-width: 40mm;
+  max-height: 14mm;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 @media screen {
   .certificate-page {
     box-shadow: 0 0 0 1px #c6d5d3;

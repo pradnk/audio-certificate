@@ -12,8 +12,14 @@ import { isTop, isLeft } from '@/lib/logo';
  * from the page is both simpler and more correct for this audience.
  *
  * The layout is also built for low vision: very large type, a 7:1 contrast
- * ratio, no decorative script faces, and the listen-to-it link spelled out in
- * full as well as encoded in the QR code.
+ * ratio and no decorative script faces.
+ *
+ * The address is carried by the QR code alone and is not printed as text. It
+ * used to be, on the reasoning that someone who cannot scan a code could still
+ * type it -- but a deployment URL runs to seventy characters, which is not
+ * something anyone types accurately and which dominated the foot of the sheet.
+ * The full address is still in the QR image's alt text, so a screen reader
+ * reading the print page aloud reaches it.
  */
 export function PrintableCertificate({
   event,
@@ -75,14 +81,42 @@ export function PrintableCertificate({
           <div className="certificate-listen">
             <p className="certificate-listen-title">This certificate speaks.</p>
             <p className="certificate-listen-body">
-              Scan the code, or visit the address below, to hear it read aloud with the applause it
-              was given.
+              Point a phone camera at the code to hear it read aloud, with the applause it was
+              given.
             </p>
-            <p className="certificate-url">{url}</p>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element -- a data URL that must survive printing */}
           <img src={qrDataUrl} alt={`QR code linking to ${url}`} className="certificate-qr" />
         </footer>
+
+        {/*
+          A sibling after the footer rather than a child of it: the footer
+          carries `margin-top: auto`, so anything following it lands at the very
+          bottom of the sheet without disturbing the three-slot row of logo,
+          listen block and QR code.
+        */}
+        {event.partnerLogos.length > 0 && (
+          <section className="certificate-partners">
+            <p className="certificate-partners-label">Presented by</p>
+            <div className="certificate-partners-row">
+              {event.partnerLogos.map((partner) => (
+                // eslint-disable-next-line @next/next/no-img-element -- next/image cannot participate in a print layout
+                <img
+                  key={partner.url}
+                  src={partner.url}
+                  /*
+                   * A real alt, unlike the presenting organisation's logo above.
+                   * These names are printed nowhere on the certificate, so an
+                   * empty alt would erase every one of these organisations for
+                   * a screen reader rather than avoiding a repetition.
+                   */
+                  alt={partner.name}
+                  className="certificate-partner-logo"
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </article>
   );

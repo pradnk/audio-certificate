@@ -1,4 +1,6 @@
+import { DEFAULT_AWARDS } from '@/lib/awards';
 import type { LogoPosition } from '@/lib/logo';
+import type { PartnerLogo } from '@/lib/partners';
 import {
   boolean,
   index,
@@ -39,6 +41,25 @@ export const events = pgTable('events', {
    * makes English text come out as Hindi. See lib/script.ts for token syntax.
    */
   templates: jsonb('templates').$type<Record<string, TemplateSet>>().notNull(),
+
+  /**
+   * The prize categories this event hands out, in the order they are offered.
+   *
+   * Per event rather than global: a science fair and a sports day give out
+   * different things, and the list is what the admin screens suggest and what
+   * a pasted spreadsheet is spell-checked against. Certificates still store
+   * free text, so a one-off award never needs a settings change first.
+   */
+  awards: jsonb('awards').$type<string[]>().notNull().default([...DEFAULT_AWARDS]),
+
+  /**
+   * Co-organisers and supporters, shown as a row of logos at the foot of the
+   * certificate and never spoken. See lib/partners.ts.
+   *
+   * Empty by default rather than seeded: crediting an organisation that had
+   * nothing to do with an award is worse than crediting nobody.
+   */
+  partnerLogos: jsonb('partner_logos').$type<PartnerLogo[]>().notNull().default([]),
 
   voiceId: text('voice_id').notNull(),
   /** A specific model id, or "auto" to choose per language. See lib/languages.ts. */

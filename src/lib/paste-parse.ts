@@ -1,4 +1,5 @@
 import type { CertificateInput } from '@/app/admin/actions';
+import { matchAward } from '@/lib/awards';
 import { SUPPORTED_LANGUAGES } from '@/lib/languages';
 
 /**
@@ -113,18 +114,27 @@ export type ParseResult = {
   rows: CertificateInput[];
   /** Human-readable problems, one per rejected line. */
   problems: string[];
+  /**
+   * Lines that were accepted but are worth a second look -- an award that is
+   * not one of the event's categories, most often a typo. Not an error: the
+   * list still imports, because a one-off prize on the morning of the ceremony
+   * must not be blocked by a settings page.
+   */
+  warnings: string[];
   usedHeader: boolean;
 };
 
 export function parseStudentList(
   text: string,
-  options: { defaultLanguage: string; defaultAward?: string },
+  options: { defaultLanguage: string; defaultAward?: string; awards?: string[] },
 ): ParseResult {
   const trimmed = text.trim();
-  if (!trimmed) return { rows: [], problems: [], usedHeader: false };
+  if (!trimmed) return { rows: [], problems: [], warnings: [], usedHeader: false };
 
   const cells = splitRows(trimmed, sniffDelimiter(trimmed));
   const problems: string[] = [];
+  const warnings: string[] = [];
+  const awards = options.awards ?? [];
 
   // A first row whose cells look like column names is treated as a header, and
   // its order is used. Otherwise assume the documented column order.
@@ -162,12 +172,23 @@ export function parseStudentList(
       return;
     }
 
-    const award = record.award || options.defaultAward || '';
-    if (!award) {
+    const rawAward = record.award || options.defaultAward || '';
+    if (!rawAward) {
       problems.push(
         `Line ${lineNumber}: "${record.studentName}" has no award. Add an Award column, or set a default award above.`,
       );
       return;
+    }
+
+    // Spelling comes from the event's configured categories, so a column of
+    // "first prize" prints and speaks as "First Prize". Anything unrecognised
+    // is kept exactly as typed and flagged, since it is as likely to be a
+    // deliberate one-off as a typo.
+    const known = matchAward(rawAward, awards);
+    if (!known && awards.length > 0) {
+      warnings.push(
+        `Line ${lineNumber}: "${rawAward}" is not one of this event's prize categories. It will be used exactly as written.`,
+      );
     }
 
     rows.push({
@@ -178,16 +199,22 @@ export function parseStudentList(
       className: record.className || null,
       projectTitle: record.projectTitle || null,
       projectBlurb: record.projectBlurb || null,
-      award,
+      award: known ?? rawAward,
       language: resolveLanguage(record.language ?? '', options.defaultLanguage),
     });
   });
 
-  return { rows, problems, usedHeader };
+  return { rows, problems, warnings, usedHeader };
 }
 
-/** The template offered as a download, so the columns are never a guess. */
-export function csvTemplate(): string {
+/**
+ * The template offered as a download, so the columns are never a guess.
+ *
+ * The example award is the event's own first category rather than a fixed
+ * "First Prize", so a downloaded template never demonstrates a prize the event
+ * does not hand out.
+ */
+export function csvTemplate(awards: readonly string[] = []): string {
   const example = [
     'Ravi Kumar',
     'RUH-vee KOO-mar',
@@ -196,7 +223,7 @@ export function csvTemplate(): string {
     'Class 8',
     'Talking Thermometer',
     'It measures the temperature and announces it aloud',
-    'First Prize',
+    awards[0] ?? 'First Prize',
     'English (India)',
   ];
   return `${IMPORT_COLUMNS.join(',')}\n${example.map((cell) => `"${cell}"`).join(',')}\n`;

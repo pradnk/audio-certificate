@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 
 import { setEventArchived, updateEvent, type EventSettings } from '@/app/admin/actions';
 import { LogoPicker } from '@/components/logo-picker';
+import { PartnerLogosPicker } from '@/components/partner-logos-picker';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
+import { DEFAULT_AWARDS, normaliseAwards } from '@/lib/awards';
 import type { Event, TemplateSet } from '@/lib/db/schema';
+import { normalisePartnerLogos } from '@/lib/partners';
 import type { ElevenLabsVoice } from '@/lib/elevenlabs';
 import {
   DEFAULT_TEMPLATES,
@@ -153,6 +156,11 @@ export function SettingsForm({
     logoUrl: event.logoUrl,
     logoPosition: event.logoPosition,
     templates: event.templates,
+    // The stored list as it is, not `awardsFor` -- an event whose categories
+    // have been cleared should look cleared here, even though the add-student
+    // screens fall back to the standard list rather than offering nothing.
+    awards: event.awards,
+    partnerLogos: event.partnerLogos,
   });
 
   const archived = Boolean(event.archivedAt);
@@ -178,9 +186,21 @@ export function SettingsForm({
 
   const save = () => {
     setError('');
+
+    // Clean the categories here as well as on the server, and keep the result,
+    // so the form ends up showing the list that was actually stored. Without
+    // this the blank and duplicate rows the server drops stay on screen after
+    // "Saved.", which reads as the save not having taken.
+    const cleaned: EventSettings = {
+      ...settings,
+      awards: normaliseAwards(settings.awards),
+      partnerLogos: normalisePartnerLogos(settings.partnerLogos),
+    };
+    setSettings(cleaned);
+
     startTransition(async () => {
       try {
-        await updateEvent(event.id, settings);
+        await updateEvent(event.id, cleaned);
         setSaved(true);
         router.refresh();
       } catch (caught) {
@@ -270,6 +290,20 @@ export function SettingsForm({
             setSettings((current) => ({ ...current, ...next }));
             setSaved(false);
           }}
+        />
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-xl font-bold">Other organisations</h2>
+        <p className="mb-5 text-ink-soft">
+          Anyone running the event alongside you, or supporting it. Their logos appear in a row at
+          the foot of the printed certificate and on the certificate page. They are never spoken —
+          the recording stays about the person receiving the award.
+        </p>
+        <PartnerLogosPicker
+          logos={settings.partnerLogos}
+          disabled={archived}
+          onChange={(next) => update('partnerLogos', next)}
         />
       </Card>
 
@@ -402,6 +436,20 @@ export function SettingsForm({
       </Card>
 
       <Card>
+        <h2 className="mb-2 text-xl font-bold">Prize categories</h2>
+        <p className="mb-5 text-ink-soft">
+          The prizes this event hands out. They are offered when you add someone, and a pasted
+          spreadsheet is checked against them — so a column reading “first prize” is corrected to
+          the spelling you set here before it is printed and spoken.
+        </p>
+        <AwardCategories
+          awards={settings.awards}
+          disabled={archived}
+          onChange={(next) => update('awards', next)}
+        />
+      </Card>
+
+      <Card>
         <h2 className="mb-2 text-xl font-bold">What the certificate says</h2>
         <p className="mb-5 text-ink-soft">
           Each language needs its own wording — the voice engine works out which language to speak
@@ -515,6 +563,91 @@ export function SettingsForm({
       </fieldset>
 
       <ArchiveControl event={event} onError={setError} />
+    </div>
+  );
+}
+
+/**
+ * Edits the list of prizes an event hands out.
+ *
+ * One input per category with its own Remove button, rather than a textarea of
+ * one-per-line: the people who run these ceremonies are not editing a config
+ * file, and a stray blank line in a textarea silently becomes a nameless prize.
+ * Blank rows here are simply dropped when the list is saved.
+ */
+function AwardCategories({
+  awards,
+  disabled,
+  onChange,
+}: {
+  awards: string[];
+  disabled: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const replace = (index: number, value: string) =>
+    onChange(awards.map((award, position) => (position === index ? value : award)));
+
+  const remove = (index: number) => onChange(awards.filter((_, position) => position !== index));
+
+  // A duplicate is dropped on save, so say so while it is still fixable rather
+  // than letting a category quietly disappear.
+  const duplicates = new Set(
+    awards
+      .map((award) => award.trim().toLowerCase())
+      .filter((award, index, all) => award && all.indexOf(award) !== index),
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
+        {awards.map((award, index) => (
+          <li key={index} className="flex items-start gap-3">
+            <div className="flex-1">
+              <Input
+                value={award}
+                onChange={(e) => replace(index, e.target.value)}
+                aria-label={`Prize category ${index + 1}`}
+                aria-invalid={duplicates.has(award.trim().toLowerCase()) || undefined}
+                autoComplete="off"
+                placeholder="Best Team Effort"
+              />
+              {duplicates.has(award.trim().toLowerCase()) && (
+                <p className="mt-1 text-sm text-danger">
+                  Already in the list — the repeat will be dropped when you save.
+                </p>
+              )}
+            </div>
+            <Button
+              variant="danger"
+              onClick={() => remove(index)}
+              aria-label={`Remove ${award.trim() || `prize category ${index + 1}`}`}
+            >
+              Remove
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      {awards.length === 0 && (
+        <p className="rounded-lg border-2 border-line bg-paper-sunk px-4 py-3 text-ink-soft">
+          No categories yet, so the standard list is offered instead. Add your own below to replace
+          it.
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <Button variant="secondary" onClick={() => onChange([...awards, ''])} disabled={disabled}>
+          Add a category
+        </Button>
+        <Button
+          variant="quiet"
+          onClick={() => onChange([...DEFAULT_AWARDS])}
+          disabled={disabled}
+          className="px-2"
+        >
+          Restore the standard list
+        </Button>
+      </div>
     </div>
   );
 }

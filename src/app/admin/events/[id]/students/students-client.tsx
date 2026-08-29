@@ -7,6 +7,7 @@ import JSZip from 'jszip';
 
 import { deleteCertificate, setReviewed } from '@/app/admin/actions';
 import { Alert, Button, Card, cx } from '@/components/ui';
+import { awardsFor } from '@/lib/awards';
 import { mapLimit } from '@/lib/concurrency';
 import type { Certificate, Event } from '@/lib/db/schema';
 import { certificateFileBase } from '@/lib/filename';
@@ -215,6 +216,7 @@ export function StudentsClient({
         <AddStudents
           eventId={event.id}
           defaultLanguage={event.defaultLanguage}
+          awards={awardsFor(event)}
           onAdded={(count) => {
             setNotice(`Added ${count} student${count === 1 ? '' : 's'}.`);
             router.refresh();

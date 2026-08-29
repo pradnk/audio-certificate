@@ -7,21 +7,16 @@ import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/component
 import { SUPPORTED_LANGUAGES, languageLabel } from '@/lib/languages';
 import { IMPORT_COLUMNS, csvTemplate, parseStudentList } from '@/lib/paste-parse';
 
-const AWARD_SUGGESTIONS = [
-  'First Prize',
-  'Second Prize',
-  'Third Prize',
-  'Special Mention',
-  'Certificate of Participation',
-];
-
 export function AddStudents({
   eventId,
   defaultLanguage,
+  awards,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
+  /** The event's prize categories, offered as suggestions. See lib/awards.ts. */
+  awards: string[];
   onAdded: (count: number) => void;
 }) {
   const [mode, setMode] = useState<'one' | 'many'>('one');
@@ -51,10 +46,16 @@ export function AddStudents({
         <SingleStudentForm
           eventId={eventId}
           defaultLanguage={defaultLanguage}
+          awards={awards}
           onAdded={onAdded}
         />
       ) : (
-        <BulkImport eventId={eventId} defaultLanguage={defaultLanguage} onAdded={onAdded} />
+        <BulkImport
+          eventId={eventId}
+          defaultLanguage={defaultLanguage}
+          awards={awards}
+          onAdded={onAdded}
+        />
       )}
     </Card>
   );
@@ -63,10 +64,12 @@ export function AddStudents({
 function SingleStudentForm({
   eventId,
   defaultLanguage,
+  awards,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
+  awards: string[];
   onAdded: (count: number) => void;
 }) {
   const [error, setError] = useState('');
@@ -132,12 +135,15 @@ function SingleStudentForm({
           {(props) => <Input {...props} name="className" autoComplete="off" placeholder="Class 8" />}
         </Field>
 
-        <Field id="award" label="Award">
+        {/* A free-text box with suggestions rather than a dropdown: the
+            categories are set under Settings, but a one-off prize decided on
+            the morning of the ceremony must not need a settings change first. */}
+        <Field id="award" label="Award" hint="Start typing to pick one of this event's categories.">
           {(props) => (
             <>
               <Input {...props} name="award" required list="award-suggestions" autoComplete="off" />
               <datalist id="award-suggestions">
-                {AWARD_SUGGESTIONS.map((award) => (
+                {awards.map((award) => (
                   <option key={award} value={award} />
                 ))}
               </datalist>
@@ -189,10 +195,12 @@ function SingleStudentForm({
 function BulkImport({
   eventId,
   defaultLanguage,
+  awards,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
+  awards: string[];
   onAdded: (count: number) => void;
 }) {
   const [text, setText] = useState('');
@@ -201,7 +209,7 @@ function BulkImport({
   const [pending, startTransition] = useTransition();
 
   const preview = text.trim()
-    ? parseStudentList(text, { defaultLanguage, defaultAward })
+    ? parseStudentList(text, { defaultLanguage, defaultAward, awards })
     : null;
 
   const readFile = async (file: File) => {
@@ -223,7 +231,7 @@ function BulkImport({
   };
 
   const downloadTemplate = () => {
-    const url = URL.createObjectURL(new Blob([csvTemplate()], { type: 'text/csv' }));
+    const url = URL.createObjectURL(new Blob([csvTemplate(awards)], { type: 'text/csv' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = 'student-list-template.csv';
@@ -242,6 +250,12 @@ function BulkImport({
           A header row is optional — if you include one, the columns can be in any order. Only{' '}
           <strong>Name</strong> and <strong>Award</strong> are required.
         </p>
+        {awards.length > 0 && (
+          <p className="mt-2 text-ink-soft">
+            Awards in this event: {awards.join(' · ')}. Capitals and spacing do not matter — they
+            are corrected to these spellings. Anything else is kept exactly as you wrote it.
+          </p>
+        )}
         <Button variant="quiet" onClick={downloadTemplate} className="mt-2 px-0">
           Download a template spreadsheet
         </Button>
@@ -289,12 +303,21 @@ function BulkImport({
           hint="Useful when the whole list is participation certificates."
         >
           {(props) => (
-            <Input
-              {...props}
-              value={defaultAward}
-              onChange={(event) => setDefaultAward(event.target.value)}
-              placeholder="Certificate of Participation"
-            />
+            <>
+              <Input
+                {...props}
+                value={defaultAward}
+                onChange={(event) => setDefaultAward(event.target.value)}
+                list="bulk-award-suggestions"
+                autoComplete="off"
+                placeholder={awards[awards.length - 1] ?? 'Certificate of Participation'}
+              />
+              <datalist id="bulk-award-suggestions">
+                {awards.map((award) => (
+                  <option key={award} value={award} />
+                ))}
+              </datalist>
+            </>
           )}
         </Field>
       </div>
@@ -312,6 +335,17 @@ function BulkImport({
             <ul className="mt-2 flex flex-col gap-1 text-danger">
               {preview.problems.map((problem) => (
                 <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          )}
+
+          {/* Warnings, not errors: these rows are going in either way. Shown so
+              a mistyped award is caught here rather than read aloud at the
+              ceremony. */}
+          {preview.warnings.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1 text-ink-soft">
+              {preview.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
               ))}
             </ul>
           )}

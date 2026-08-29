@@ -5,11 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { isAdmin } from '@/lib/auth-server';
+import { normaliseAwards } from '@/lib/awards';
 import { mostRecentEvent, newEventDefaults, newPublicId, pickDefaultVoice } from '@/lib/data';
 import { listVoices } from '@/lib/elevenlabs';
 import { db } from '@/lib/db';
 import { certificates, events, type ScriptSnapshot } from '@/lib/db/schema';
 import { DEFAULT_LOGO_POSITION, isLogoPosition, type LogoPosition } from '@/lib/logo';
+import { normalisePartnerLogos, type PartnerLogo } from '@/lib/partners';
 import { buildScript, MissingTemplatesError } from '@/lib/script';
 
 async function assertAdmin(): Promise<void> {
@@ -82,8 +84,9 @@ export async function createEvent(formData: FormData): Promise<void> {
   const rawPosition = String(formData.get('logoPosition') ?? '');
   const logoPosition = isLogoPosition(rawPosition) ? rawPosition : DEFAULT_LOGO_POSITION;
 
-  // Carry forward the previous event's wording, voice and language. Running the
-  // same ceremony each year is the normal case, and retyping all of it is not.
+  // Carry forward the previous event's wording, award categories, partner
+  // logos, voice and language. Running the same ceremony each year is the normal case, and
+  // retyping all of it is not.
   const previous = await mostRecentEvent();
 
   // Only guess at a voice for the very first event. After that, whatever was
@@ -129,6 +132,10 @@ export type EventSettings = {
   logoUrl: string | null;
   logoPosition: LogoPosition;
   templates: Record<string, { intro: string; awardLine: string; citation: string; prize: string; closing: string }>;
+  /** The prize categories offered for this event. See lib/awards.ts. */
+  awards: string[];
+  /** Co-organisers and supporters shown at the foot. See lib/partners.ts. */
+  partnerLogos: PartnerLogo[];
 };
 
 export async function updateEvent(eventId: string, settings: EventSettings): Promise<void> {
@@ -142,6 +149,16 @@ export async function updateEvent(eventId: string, settings: EventSettings): Pro
       logoPosition: isLogoPosition(settings.logoPosition)
         ? settings.logoPosition
         : DEFAULT_LOGO_POSITION,
+      // Trimmed and de-duplicated here rather than trusting the form: an action
+      // is a public POST endpoint, and this list is printed and spoken. A
+      // caller that sends no list at all -- a browser tab left open from before
+      // prize categories existed -- leaves the stored one alone rather than
+      // silently clearing it.
+      awards: Array.isArray(settings.awards) ? normaliseAwards(settings.awards) : undefined,
+      // Same treatment, and the same reason, as the awards list above.
+      partnerLogos: Array.isArray(settings.partnerLogos)
+        ? normalisePartnerLogos(settings.partnerLogos)
+        : undefined,
       updatedAt: new Date(),
     })
     .where(eq(events.id, eventId));
