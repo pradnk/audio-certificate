@@ -116,10 +116,11 @@ export function PrintWarnings({
             one sheet.
           </p>
           <p className="mt-2">
-            The content runs past the border and will spill onto a second page. Most often it is a
-            name long enough to wrap onto a second line, which costs more room than anything else on
-            the sheet. It can also be a description, or a paragraph in the printed wording, running
-            to several lines — shorten those on the recipients page or in Settings.
+            Taali has already squeezed the type as far as it will go without the sheet looking
+            unlike the rest of the pile, and {overflowing.length === 1 ? 'this one is' : 'these are'}{' '}
+            still over. Most often it is a name long enough to wrap onto a second line, which costs
+            more room than anything else on the sheet; a long description or a long paragraph in the
+            printed wording can do it too. Shorten those on the recipients page or in Settings.
           </p>
           <p className="mt-2 font-bold">{overflowing.join(', ')}</p>
         </div>
@@ -244,6 +245,54 @@ function fitLines(): string[] {
 }
 
 /**
+ * The smallest a whole sheet may be squeezed, as a fraction of its designed size.
+ *
+ * Ten per cent is about the point at which a certificate stops looking like the
+ * others in the pile, which is the thing this is protecting. Past that it is
+ * better to say so and let somebody shorten the wording.
+ */
+const MIN_SHEET_SCALE = 0.9;
+
+/**
+ * Squeezes a sheet that is running over until it fits on one page.
+ *
+ * Only the type and the gaps between it move; the code, the logos and the
+ * border are fixed millimetres, so the sheet keeps its proportions and the QR
+ * keeps the module size it needs to be scanned. A step at a time rather than
+ * one calculation, because shrinking the type changes where lines wrap and a
+ * sheet can come back under in fewer steps than the arithmetic predicts.
+ *
+ * Returns the names it could not rescue.
+ */
+function fitSheets(): string[] {
+  const stubborn: string[] = [];
+
+  for (const page of document.querySelectorAll('.certificate-page')) {
+    const frame = page.querySelector<HTMLElement>('.certificate-frame');
+    if (!frame) continue;
+
+    frame.style.removeProperty('--fit');
+    if (frame.scrollHeight <= frame.clientHeight + 1) continue;
+
+    let scale = 1;
+    while (scale > MIN_SHEET_SCALE && frame.scrollHeight > frame.clientHeight + 1) {
+      // Rounded, so the value in the stylesheet reads as 0.92 rather than as
+      // the floating point tail that repeated subtraction leaves behind.
+      scale = Math.max(MIN_SHEET_SCALE, Math.round((scale - 0.02) * 100) / 100);
+      frame.style.setProperty('--fit', String(scale));
+    }
+
+    if (frame.scrollHeight > frame.clientHeight + 1) {
+      stubborn.push(
+        page.querySelector('.certificate-name')?.textContent?.trim() || 'Unnamed certificate',
+      );
+    }
+  }
+
+  return stubborn;
+}
+
+/**
  * Fits the long lines, then reports what still does not fit on one sheet.
  *
  * The two belong together and in that order: fitting changes the height of the
@@ -261,18 +310,11 @@ function usePrintFit(): { overflowing: string[]; stubborn: string[] } {
 
     const run = () => {
       if (cancelled) return;
+      // Longest lines first, then the sheet as a whole: fitting the name can
+      // take a sheet back under on its own, and squeezing everything to rescue
+      // something one line could have fixed makes the rest smaller for nothing.
       const stubborn = fitLines();
-      const overflowing = [...document.querySelectorAll('.certificate-page')]
-        .filter((page) => {
-          const frame = page.querySelector('.certificate-frame');
-          // A pixel of tolerance: sub-pixel rounding of millimetre units
-          // otherwise reports a perfectly fine sheet as overflowing.
-          return frame ? frame.scrollHeight > frame.clientHeight + 1 : false;
-        })
-        .map(
-          (page) =>
-            page.querySelector('.certificate-name')?.textContent?.trim() || 'Unnamed certificate',
-        );
+      const overflowing = fitSheets();
       setResult({ overflowing, stubborn });
     };
 

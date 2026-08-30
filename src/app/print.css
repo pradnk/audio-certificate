@@ -31,6 +31,16 @@
 }
 
 .certificate-frame {
+  /*
+   * How much the type and the gaps between it are squeezed to keep a sheet on
+   * one page. 1 unless components/print-warnings.tsx measures an overflow and
+   * turns it down; see fitSheets there.
+   *
+   * The QR code, the logos, the border and the frame's own padding are all
+   * fixed millimetres and stay out of it -- a code that shrinks with the text
+   * gets harder to scan, which is a worse problem than the one being solved.
+   */
+  --fit: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -108,7 +118,7 @@
 
 .certificate-header .certificate-partners-label,
 .certificate-centred-header .certificate-partners-label {
-  font-size: 8pt;
+  font-size: calc(8pt * var(--fit));
 }
 
 .certificate-heading {
@@ -120,7 +130,7 @@
 
 .certificate-event {
   margin: 0;
-  font-size: 22pt;
+  font-size: calc(22pt * var(--fit));
   /* 1.15, not the 1.6 inherited from body copy: this is display type, and at
      22pt the inherited value added 3mm of empty space above the rule. */
   line-height: 1.15;
@@ -131,32 +141,30 @@
 }
 
 .certificate-org {
-  margin: 1mm 0 0;
-  font-size: 14pt;
+  margin: calc(1mm * var(--fit)) 0 0;
+  font-size: calc(14pt * var(--fit));
   line-height: 1.3;
   color: #3f5250;
 }
 
 .certificate-lead {
   margin: 0;
-  font-size: 16pt;
+  font-size: calc(16pt * var(--fit));
   line-height: 1.25;
   color: #3f5250;
 }
 
 .certificate-name {
-  /* The largest thing on the page by a wide margin: at this size it is legible
-     to someone with substantial residual vision holding it at arm's length. */
-  margin: 2mm 0 0;
-  font-size: 54pt;
+  /* The largest thing on the page by a wide margin: at this size it is legible to someone with substantial residual vision holding it at arm's length. */ margin: calc(2mm * var(--fit)) 0 0;
+  font-size: calc(54pt * var(--fit));
   line-height: 1.1;
   font-weight: 700;
   text-wrap: balance;
 }
 
 .certificate-detail {
-  margin: 2mm 0 0;
-  font-size: 16pt;
+  margin: calc(2mm * var(--fit)) 0 0;
+  font-size: calc(16pt * var(--fit));
   line-height: 1.25;
   color: #3f5250;
 }
@@ -164,19 +172,19 @@
 .certificate-award {
   display: inline-block;
   align-self: flex-start;
-  margin: 4mm 0 0;
+  margin: calc(4mm * var(--fit)) 0 0;
   padding: 2mm 5mm;
   border-radius: 2mm;
   background: #d6ecea;
-  font-size: 26pt;
+  font-size: calc(26pt * var(--fit));
   line-height: 1.2;
   font-weight: 700;
   color: #06302f;
 }
 
 .certificate-project {
-  margin: 3mm 0 0;
-  font-size: 15pt;
+  margin: calc(3mm * var(--fit)) 0 0;
+  font-size: calc(15pt * var(--fit));
   line-height: 1.5;
   max-width: 200mm;
 }
@@ -193,14 +201,14 @@
 
 .certificate-listen-title {
   margin: 0;
-  font-size: 15pt;
+  font-size: calc(15pt * var(--fit));
   line-height: 1.25;
   font-weight: 700;
 }
 
 .certificate-listen-body {
-  margin: 1mm 0 0;
-  font-size: 12pt;
+  margin: calc(1mm * var(--fit)) 0 0;
+  font-size: calc(12pt * var(--fit));
   color: #3f5250;
   max-width: 150mm;
 }
@@ -322,7 +330,7 @@
  */
 .certificate-centred-header-centre .certificate-centred-event {
   grid-column: 2;
-  font-size: 24pt;
+  font-size: calc(24pt * var(--fit));
   text-align: center;
   /*
    * Capped so a long event name wraps onto a second line instead of widening
@@ -366,8 +374,8 @@
    * whatever room is left, so on a full sheet it would otherwise ride up
    * against the title with no gap at all.
    */
-  margin: 2mm 0 5mm;
-  font-size: 30pt;
+  margin: calc(2mm * var(--fit)) 0 calc(5mm * var(--fit));
+  font-size: calc(30pt * var(--fit));
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -399,7 +407,7 @@
 
 .certificate-centred-lead {
   margin: 0;
-  font-size: 16pt;
+  font-size: calc(16pt * var(--fit));
   line-height: 1.25;
   color: #3f5250;
 }
@@ -410,16 +418,16 @@
  * the saving keeps a long name on one line.
  */
 .certificate-centred-name {
-  margin: 2mm 0 0;
-  font-size: 44pt;
+  margin: calc(2mm * var(--fit)) 0 0;
+  font-size: calc(44pt * var(--fit));
   line-height: 1.1;
   font-weight: 700;
   text-wrap: balance;
 }
 
 .certificate-centred-from {
-  margin: 2mm 0 0;
-  font-size: 17pt;
+  margin: calc(2mm * var(--fit)) 0 0;
+  font-size: calc(17pt * var(--fit));
   line-height: 1.3;
   font-weight: 700;
 }
@@ -432,8 +440,8 @@
  */
 .certificate-centred-award {
   align-self: center;
-  margin: 4mm 0 0;
-  font-size: 22pt;
+  margin: calc(4mm * var(--fit)) 0 0;
+  font-size: calc(22pt * var(--fit));
 }
 
 /*
@@ -443,8 +451,8 @@
  * about 7mm, which is more than anything else here has to give.
  */
 .certificate-centred-recognition {
-  margin: 4mm 0 0;
-  font-size: 14pt;
+  margin: calc(4mm * var(--fit)) 0 0;
+  font-size: calc(14pt * var(--fit));
   line-height: 1.5;
   max-width: 210mm;
   text-wrap: balance;
@@ -452,8 +460,8 @@
 }
 
 .certificate-centred-closing {
-  margin: 4mm 0 0;
-  font-size: 15pt;
+  margin: calc(4mm * var(--fit)) 0 0;
+  font-size: calc(15pt * var(--fit));
   line-height: 1.4;
   max-width: 190mm;
   text-wrap: balance;
@@ -484,7 +492,7 @@
  */
 .certificate-centred-signature {
   margin: 0;
-  font-size: 14pt;
+  font-size: calc(14pt * var(--fit));
   line-height: 1.3;
   font-weight: 700;
   flex: 1 1 auto;

@@ -111,12 +111,19 @@ logos](#adding-other-organisations-logos)*.
   under it to sign in by hand. It does not print what they showed, so it suits a
   ceremony where the exhibit is not the point.
 
-**Long names look after themselves.** A name or school line too long for one
-line is quietly stepped down a size or two on that certificate alone, so it
-stays on one line and the sheet still matches the rest of the pile. Nothing else
-moves. If a name is so long that even that cannot rescue it, the print page says
-so by name before you print, and shortening it — a middle name, or the city — is
-usually all it takes.
+**Certificates that run long look after themselves.** Two things happen, in
+order, and only on the certificate that needs them:
+
+1. A name or school line too long for one line is stepped down a size or two so
+   it stays on one line.
+2. If the sheet still runs past its border, the whole thing is squeezed — the
+   type and the spaces between it, up to about a tenth — until it fits on one
+   page. The QR code, the logos and the border keep their size, so the sheet
+   still looks like the rest of the pile and the code still scans.
+
+If a certificate is over even then, the print page says so by name before you
+print. Shortening the name — a middle name, or the city — or trimming the
+wording is usually all it takes.
 
 **Where the event's name goes** is a choice on the centred layout. Either way it
 sits inside the header band, alongside the logos:
@@ -558,7 +565,7 @@ A few things worth knowing:
 | **"This event is marked complete"** | The event is locked. Open **Settings** and click **Reopen event**. |
 | **"Your session has expired"** | Sign in again. |
 | **"N lines would not fit on one line, even made smaller"** | A name or school line so long that shrinking it could not keep it on one line. It still prints, wrapped. Shorten it on the recipients page — a middle name or the city is usually enough. |
-| **"N certificates will not fit on one sheet"** | The content runs past the border and would spill onto a second page. Most often it is a name long enough to wrap onto a second line, which costs more room than anything else on the sheet; a long description or a long recognition paragraph can do it too. The named certificates are the only ones affected. |
+| **"N certificates will not fit on one sheet"** | The content runs past the border even after Taali has squeezed the type as far as it will go. Most often it is a name long enough to wrap onto a second line, which costs more room than anything else on the sheet; a long description or a long paragraph of wording can do it too. The named certificates are the only ones affected. |
 | **The link asks me to sign in to Vercel** | Deployment Protection is switched on for the project, so every certificate link is private. In the Vercel dashboard: **Project → Settings → Deployment Protection → Vercel Authentication → Disabled**. Certificate pages are meant to be public — that is the whole point of handing the link to a family. |
 | **"Do not print — these QR codes will stop working"** | `NEXT_PUBLIC_SITE_URL` is set to one deployment's own address rather than the project's. Set it to the permanent address and redeploy — see the settings table in Part 2. |
 | **The QR codes do not scan** | Taali warns you on the print page when this will happen. Do not print until that warning is gone — ask whoever maintains the site. |

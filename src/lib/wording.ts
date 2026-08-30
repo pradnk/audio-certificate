@@ -56,7 +56,16 @@ export type WordingOverrides = {
   spoken?: SpokenOverrides;
 };
 
-const MAX_FIELD_LENGTH = 400;
+/**
+ * The longest any one line of wording may be.
+ *
+ * Enforced on the way in as well as here, so that a paragraph is stopped while
+ * it is being typed rather than silently losing its tail somewhere between the
+ * settings screen and the printer.
+ */
+export const MAX_WORDING_LENGTH = 400;
+
+const MAX_FIELD_LENGTH = MAX_WORDING_LENGTH;
 
 function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim().slice(0, MAX_FIELD_LENGTH) : '';

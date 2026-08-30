@@ -4,6 +4,7 @@ import { useRef, type ComponentProps } from 'react';
 
 import { Textarea } from '@/components/ui';
 import { toggleBold } from '@/lib/rich-text';
+import { MAX_WORDING_LENGTH } from '@/lib/wording';
 
 /**
  * A wording box that can make part of what it holds bold.
@@ -53,6 +54,9 @@ export function WordingTextarea({
       <Textarea
         {...props}
         ref={ref}
+        // The same cap the server applies. Without it a longer paragraph is
+        // accepted here and quietly loses its tail on the certificate.
+        maxLength={MAX_WORDING_LENGTH}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
@@ -77,6 +81,8 @@ export function WordingTextarea({
         <span className="text-sm text-ink-soft">
           Select some words and press Bold, or Ctrl+B. A new line here is a new line on the
           certificate.
+          {value.length > MAX_WORDING_LENGTH - 60 &&
+            ` ${MAX_WORDING_LENGTH - value.length} characters left.`}
         </span>
       </div>
     </>
