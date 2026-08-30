@@ -5,7 +5,8 @@ import {
   recipientTypesFor,
   printWordingFor,
 } from '@/lib/recipient-types';
-import { renderTemplate, type ScriptVars } from '@/lib/script';
+import { RichText } from '@/components/rich-text';
+import { renderPrintedLines, type ScriptVars } from '@/lib/script';
 
 /**
  * The paper version of a certificate.
@@ -145,8 +146,10 @@ function OrganisationLogo({ event, alt }: { event: Event; alt: string }) {
 /**
  * The row of co-organiser and supporter marks.
  *
- * `withLabel` is false in the header, where a caption above a row of logos
- * beside the event's name reads as a stray heading rather than as a credit.
+ * The label sits above the row in a header and beside it in a foot band: over a
+ * band that spans the sheet an inline caption reads as part of the row, while
+ * in a header the row is narrow and a caption beside it would crowd whatever
+ * shares the line.
  */
 function PartnerLogos({ event, withLabel }: { event: Event; withLabel: boolean }) {
   if (event.partnerLogos.length === 0) return null;
@@ -196,11 +199,11 @@ function ClassicBody({ event, certificate, url, qrDataUrl }: BodyProps) {
           */}
           <p className="certificate-org">{event.orgName}</p>
         </div>
-        {partnersAtTop && <PartnerLogos event={event} withLabel={false} />}
+        {partnersAtTop && <PartnerLogos event={event} withLabel />}
       </header>
 
       <p className="certificate-lead">
-        {renderTemplate(event.printWording.lead, printVars(event, certificate))}
+        <RichText lines={renderPrintedLines(event.printWording.lead, printVars(event, certificate))} />
       </p>
       <h1 className="certificate-name" data-fit="name">
         {certificate.studentName}
@@ -251,7 +254,10 @@ function ClassicBody({ event, certificate, url, qrDataUrl }: BodyProps) {
  */
 function CentredBody({ event, certificate, url, qrDataUrl }: BodyProps) {
   const vars = printVars(event, certificate);
-  const line = (template: string) => renderTemplate(template, vars);
+  // Printed wording keeps its line breaks and its bold markers; see
+  // lib/rich-text.ts. Everything spoken goes through renderTemplate instead,
+  // which strips both.
+  const line = (template: string) => renderPrintedLines(template, vars);
 
   // Resolved once, prize over group over event, rather than reaching for the
   // event's copy field by field and losing track of which ones can be overridden.
@@ -269,6 +275,7 @@ function CentredBody({ event, certificate, url, qrDataUrl }: BodyProps) {
   const signature = line(wording.signature);
   const partnersAtTop = event.partnerLogoPosition === 'top-right';
   const side = isLeft(event.logoPosition) ? 'start' : 'end';
+  const namePlace = event.eventNamePosition;
 
   return (
     <>
@@ -283,31 +290,54 @@ function CentredBody({ event, certificate, url, qrDataUrl }: BodyProps) {
         logo off the sheet, which is what happened before the centred layout
         looked at `logoUrl` at all.
       */}
-      <header className="certificate-centred-header">
+      {/*
+        Three columns, so the middle one is centred on the sheet rather than on
+        whatever space the marks leave over. The outer two are equal fractions
+        even when one is empty, which is what keeps the name on the centre line
+        when only one side carries a logo.
+      */}
+      <header className={`certificate-centred-header certificate-centred-header-${namePlace}`}>
         <div className={`certificate-centred-brand certificate-band-${side}`}>
           <OrganisationLogo event={event} alt={event.orgName} />
-          <p className="certificate-centred-event">{event.name}</p>
+          {namePlace === 'left' && <p className="certificate-centred-event">{event.name}</p>}
         </div>
-        {partnersAtTop && <PartnerLogos event={event} withLabel={false} />}
+        {namePlace === 'centre' && <p className="certificate-centred-event">{event.name}</p>}
+        {partnersAtTop && <PartnerLogos event={event} withLabel />}
       </header>
 
-      {title && <p className="certificate-centred-title">{title}</p>}
+      {title.length > 0 && (
+        <p className="certificate-centred-title">
+          <RichText lines={title} />
+        </p>
+      )}
 
       <div className="certificate-centred-body">
-        {lead && <p className="certificate-centred-lead">{lead}</p>}
+        {lead.length > 0 && (
+          <p className="certificate-centred-lead">
+            <RichText lines={lead} />
+          </p>
+        )}
         <h1 className="certificate-name certificate-centred-name" data-fit="name">
           {certificate.studentName}
         </h1>
-        {fromLine && (
+        {fromLine.length > 0 && (
           <p className="certificate-centred-from" data-fit="line">
-            {fromLine}
+            <RichText lines={fromLine} />
           </p>
         )}
         {certificate.award.trim() && (
           <p className="certificate-award certificate-centred-award">{certificate.award}</p>
         )}
-        {recognition && <p className="certificate-centred-recognition">{recognition}</p>}
-        {closing && <p className="certificate-centred-closing">{closing}</p>}
+        {recognition.length > 0 && (
+          <p className="certificate-centred-recognition">
+            <RichText lines={recognition} />
+          </p>
+        )}
+        {closing.length > 0 && (
+          <p className="certificate-centred-closing">
+            <RichText lines={closing} />
+          </p>
+        )}
       </div>
 
       {/*
@@ -317,7 +347,9 @@ function CentredBody({ event, certificate, url, qrDataUrl }: BodyProps) {
         text into a column one word wide.
       */}
       <footer className="certificate-centred-footer">
-        <p className="certificate-centred-signature">{signature}</p>
+        <p className="certificate-centred-signature">
+          <RichText lines={signature} />
+        </p>
         <div className="certificate-centred-listen">
           <ListenBlock url={url} qrDataUrl={qrDataUrl} />
         </div>

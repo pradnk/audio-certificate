@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { setEventArchived, updateEvent, type EventSettings } from '@/app/admin/actions';
 import { LogoPicker } from '@/components/logo-picker';
 import { PartnerLogosPicker } from '@/components/partner-logos-picker';
+import { WordingTextarea } from '@/components/wording-textarea';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import {
   CERTIFICATE_LAYOUTS,
+  EVENT_NAME_POSITIONS,
   PARTNER_LOGO_POSITIONS,
   normalisePartnerLabel,
 } from '@/lib/certificate-layout';
@@ -241,6 +243,7 @@ export function SettingsForm({
     partnerLogoPosition: event.partnerLogoPosition,
     partnerLabel: event.partnerLabel,
     certificateLayout: event.certificateLayout,
+    eventNamePosition: event.eventNamePosition,
     printWording: event.printWording,
   });
 
@@ -420,6 +423,32 @@ export function SettingsForm({
           ))}
         </div>
 
+        {settings.certificateLayout === 'centred' && (
+          <div className="mb-6">
+            <Field
+              id="eventNamePosition"
+              label="Where the event's name goes"
+              hint="Beside the logo the header reads as a masthead along one edge; centred, it sits on the sheet's middle line with the logos flanking it. Either way it stays inside the header band."
+            >
+              {(props) => (
+                <Select
+                  {...props}
+                  value={settings.eventNamePosition}
+                  onChange={(e) =>
+                    update('eventNamePosition', e.target.value as typeof settings.eventNamePosition)
+                  }
+                >
+                  {EVENT_NAME_POSITIONS.map((position) => (
+                    <option key={position.value} value={position.value}>
+                      {position.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+        )}
+
         <div className="flex flex-col gap-5">
           {WORDING_FIELDS.map((field) => {
             const unused = field.centredOnly && settings.certificateLayout !== 'centred';
@@ -431,11 +460,11 @@ export function SettingsForm({
                 hint={unused ? `${field.hint} Not printed by the classic layout.` : field.hint}
               >
                 {(props) => (
-                  <Textarea
+                  <WordingTextarea
                     {...props}
                     rows={field.rows}
                     value={settings.printWording[field.key]}
-                    onChange={(e) => updateWording(field.key, e.target.value)}
+                    onChange={(next) => updateWording(field.key, next)}
                     className={unused ? 'opacity-60' : undefined}
                     dir="auto"
                   />
@@ -957,11 +986,11 @@ function PrintedOverrideFields({
         hint={`Printed under the prize. Leave it empty and ${inheritsFrom} is used.`}
       >
         {(props) => (
-          <Textarea
+          <WordingTextarea
             {...props}
             rows={3}
             value={value.recognition ?? ''}
-            onChange={(e) => onChange({ recognition: e.target.value })}
+            onChange={(next) => onChange({ recognition: next })}
             dir="auto"
           />
         )}
@@ -972,11 +1001,11 @@ function PrintedOverrideFields({
         hint={`The last line on the sheet. Leave it empty and ${inheritsFrom} is used — worth setting when the shared one is addressed to somebody else, as “keep experimenting” is to a teacher.`}
       >
         {(props) => (
-          <Textarea
+          <WordingTextarea
             {...props}
             rows={2}
             value={value.closing ?? ''}
-            onChange={(e) => onChange({ closing: e.target.value })}
+            onChange={(next) => onChange({ closing: next })}
             dir="auto"
           />
         )}
@@ -1052,6 +1081,23 @@ function RecipientTypes({
           />
 
           <div className="mt-5">
+            <div className="mb-4">
+              <Field
+                id={`recipient-${type.id}-title`}
+                label="Heading on the certificate"
+                hint="Printed across the top, e.g. “Student Certificate”. The same for every prize in this group. Leave it empty to use the event's heading."
+              >
+                {(props) => (
+                  <Input
+                    {...props}
+                    value={type.title ?? ''}
+                    onChange={(e) => patch(index, { title: e.target.value })}
+                    autoComplete="off"
+                    placeholder="Certificate"
+                  />
+                )}
+              </Field>
+            </div>
             <PrintedOverrideFields
               idPrefix={`recipient-${type.id}`}
               subject={`a ${type.label.trim().toLowerCase() || 'certificate in this group'}`}

@@ -118,6 +118,25 @@ moves. If a name is so long that even that cannot rescue it, the print page says
 so by name before you print, and shortening it — a middle name, or the city — is
 usually all it takes.
 
+**Where the event's name goes** is a choice on the centred layout. Either way it
+sits inside the header band, alongside the logos:
+
+```
+  [logo]  CURIOUS MINDS 2026                    PARTNERS
+                                                [ ] [ ]
+                     STUDENT CERTIFICATE
+
+  [logo]        CURIOUS MINDS 2026              PARTNERS
+                                                [ ] [ ]
+                     STUDENT CERTIFICATE
+```
+
+**Left** puts it next to the logo, so the header reads as a masthead along one
+edge. **Centred** puts it on the sheet's middle line with the marks flanking it,
+in a larger size — which suits a formal certificate, and is what the example
+above the fold uses. A name too long for the middle wraps onto a second line
+rather than crowding the logos.
+
 Neither layout prints the date. What matters years later is whose award it was,
 not which afternoon it was handed over — and the event's **Date** is still shown
 on the certificate page, and still available as `{{date}}` if you want it in the
@@ -132,6 +151,17 @@ The same `{{placeholders}}` work as in the spoken wording, including
 `[[double brackets]]` for text that should disappear when its details are
 missing — which is how `[[from {{location}}]]` prints nothing at all for a
 recipient with no school or city recorded, rather than a bare "from".
+
+**Bold and line breaks.** Select a few words in any of these boxes and press
+**Bold** — or Ctrl+B — and they print bold. Press it again to take it off. The
+words are wrapped in `**stars**` in the box, which is how they are stored, so
+they survive being copied into an email or a spreadsheet.
+
+Pressing return gives you a new line on the certificate, exactly where you put
+it. A blank line between two lines gives you a gap.
+
+Neither reaches the recording: the voice would read the stars out loud, so they
+are stripped from everything spoken, and a recording has no lines to break.
 
 **What the certificate says.** This is the actual wording. You can change any of
 it. Words in `{{double braces}}` are filled in automatically — `{{name}}`
@@ -391,6 +421,11 @@ recognised**, click **Add another group**, name it (*Teacher*, *Volunteer*,
 - **Each group has its own prizes**, so a student is never offered "Best Mentor"
   and a teacher is never offered "First Prize" — and a pasted sheet that files
   one under the other is flagged before you print.
+- **Each group can name its own certificate.** *Heading on the certificate* is
+  printed across the top — “Student Certificate”, “Teacher Certificate”. It is
+  the same for every prize in the group, because what kind of certificate this
+  is follows from who it is for, not from which prize they were handed. It is
+  printed only; the recording is unchanged.
 - **Each group can say what it is recognised *for*.** A student took part; a
   teacher guided the students who took part, and no one sentence says both well.
   Fill in that box for the group and it uses its own line; leave it empty and it
@@ -402,6 +437,10 @@ recognised**, click **Add another group**, name it (*Teacher*, *Volunteer*,
   the shared one, so you only fill in what actually differs.
 - **The parting line works the same way**, so "keep experimenting" does not have
   to be said to a teacher.
+- **The certificate page follows the sheet.** The name, prize and wording are
+  centred there too, and the partner logos carry the same caption. The
+  word-for-word transcript stays left-aligned on purpose — centred prose is hard
+  to track line to line, and that is the one long read on the page.
 - **The recording can differ too.** Under **What the certificate says** there is
   a panel headed *Different words for some groups or prizes*, listing every
   group and every prize. Any of the five spoken lines can be replaced there, and
@@ -499,9 +538,10 @@ A few things worth knowing:
 - **They belong to the event**, so a sports day and a science fair can have
   different ones, and next year's event starts with this year's list.
 - **You choose where they sit** — across the foot of the sheet, or at the top
-  right beside the event's name — and what is written above them. Clearing that
-  box gives you the logos and nothing else. Nothing is ever written above them
-  when they sit at the top, where a caption would read as a stray heading.
+  right — and what is written above them. Clearing that box gives you the logos
+  and nothing else. In a header the caption sits above the row and the logos are
+  a size smaller to pay for it; in a band across the foot it sits beside them.
+  The certificate page shows the same caption above its own row.
 - The row is sized so that all logos come out at roughly equal visual weight
   whatever their shape — a tall square mark and a wide wordmark both fit.
 

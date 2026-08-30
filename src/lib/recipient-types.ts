@@ -174,6 +174,9 @@ export function printWordingFor(
   const levels = [awardCategoryFor(type, awardName), type];
   return {
     ...shared,
+    // The title comes from the group alone: what kind of certificate this is
+    // follows from who it is for, not from which prize they were handed.
+    title: resolveOverride([type], (o) => o.title, shared.title),
     recognition: resolveOverride(levels, (o) => o.recognition, shared.recognition),
     closing: resolveOverride(levels, (o) => o.closing, shared.closing),
   };

@@ -39,6 +39,15 @@ export type SpokenOverrides = Record<string, Partial<TemplateSet>>;
 
 /** What a prize category or a recipient group may say for itself. */
 export type WordingOverrides = {
+  /**
+   * Printed: the heading across the top, e.g. "Student Certificate".
+   *
+   * Resolved from the recipient group only, never from the prize: what kind of
+   * certificate this is follows from who it is for, not from which prize they
+   * were given, so a "Certificate of Participation" and a "First Prize" handed
+   * to two students are both a Student Certificate.
+   */
+  title?: string;
   /** Printed: what the certificate is recognised for. */
   recognition?: string;
   /** Printed: the parting line under the citation. */
@@ -63,6 +72,9 @@ function clean(value: unknown): string {
 export function normaliseWordingOverrides(value: WordingOverrides | undefined): WordingOverrides {
   const result: WordingOverrides = {};
 
+  const title = clean(value?.title);
+  if (title) result.title = title;
+
   const recognition = clean(value?.recognition);
   if (recognition) result.recognition = recognition;
 
@@ -86,7 +98,7 @@ export function normaliseWordingOverrides(value: WordingOverrides | undefined): 
 /** True when this level has anything to say at all, in any language. */
 export function hasOverrides(value: WordingOverrides | undefined): boolean {
   const cleaned = normaliseWordingOverrides(value);
-  return Boolean(cleaned.recognition || cleaned.closing || cleaned.spoken);
+  return Boolean(cleaned.title || cleaned.recognition || cleaned.closing || cleaned.spoken);
 }
 
 /**

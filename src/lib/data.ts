@@ -5,6 +5,7 @@ import { customAlphabet } from 'nanoid';
 
 import {
   DEFAULT_CERTIFICATE_LAYOUT,
+  DEFAULT_EVENT_NAME_POSITION,
   DEFAULT_PARTNER_LABEL,
   DEFAULT_PARTNER_LOGO_POSITION,
 } from '@/lib/certificate-layout';
@@ -129,6 +130,7 @@ export function newEventDefaults(
     partnerLogoPosition: previous?.partnerLogoPosition ?? DEFAULT_PARTNER_LOGO_POSITION,
     partnerLabel: previous?.partnerLabel ?? DEFAULT_PARTNER_LABEL,
     certificateLayout: previous?.certificateLayout ?? DEFAULT_CERTIFICATE_LAYOUT,
+    eventNamePosition: previous?.eventNamePosition ?? DEFAULT_EVENT_NAME_POSITION,
     printWording: previous ? { ...previous.printWording } : { ...DEFAULT_PRINT_WORDING },
     voiceId,
     modelId: previous?.modelId ?? MODEL_AUTO,

@@ -7,6 +7,7 @@ import type {
 } from '@/lib/db/schema';
 import { modelSupportsSpeed, resolveModel, terminatorFor } from '@/lib/languages';
 import { recipientTypeFor, recipientTypesFor, spokenTemplatesFor } from '@/lib/recipient-types';
+import { stripBold } from '@/lib/rich-text';
 
 /**
  * Turns an event's wording templates plus one student's details into the exact
@@ -27,7 +28,8 @@ const OPTIONAL_BLOCK = /\[\[(.*?)\]\]/gs;
 
 export type ScriptVars = Record<string, string | null | undefined>;
 
-export function renderTemplate(template: string, vars: ScriptVars): string {
+/** Substitution and optional blocks, before any tidying. */
+function fill(template: string, vars: ScriptVars): string {
   const substitute = (text: string) =>
     text.replace(TOKEN, (_match, name: string) => (vars[name] ?? '').toString().trim());
 
@@ -37,7 +39,43 @@ export function renderTemplate(template: string, vars: ScriptVars): string {
     return anyEmpty ? '' : substitute(inner);
   });
 
-  return tidy(substitute(withOptionalBlocks));
+  return substitute(withOptionalBlocks);
+}
+
+/**
+ * One line of text, for anywhere it is spoken or used as a plain string.
+ *
+ * Bold markers are stripped here rather than passed along: the voice engine
+ * would read them out, and "star star congratulations star star" is not what
+ * anybody wants at an awards ceremony. Line breaks collapse to spaces for the
+ * same reason -- a recording has no lines.
+ */
+export function renderTemplate(template: string, vars: ScriptVars): string {
+  return tidy(stripBold(fill(template, vars)));
+}
+
+/**
+ * The same wording, kept as the lines it was typed as.
+ *
+ * Tidied line by line rather than all at once, so that the punctuation left
+ * behind by a dropped optional block is still cleaned up while a deliberate
+ * line break survives to paper. Bold markers are left in place for the caller
+ * to render; see lib/rich-text.ts.
+ */
+export function renderPrintedLines(template: string, vars: ScriptVars): string[] {
+  // Only the last line gets its trailing punctuation trimmed. That rule exists
+  // to clear the comma a dropped optional block leaves hanging, and at the end
+  // of an earlier line the comma is nearly always deliberate.
+  const raw = fill(template, vars).split(/\r?\n/).map(tidyWithin);
+  const lines = raw.map((line, index) =>
+    index === raw.length - 1 ? trimTrailingPunctuation(line) : line,
+  );
+
+  // Blank lines at either end are the ones nobody meant; a blank line between
+  // two paragraphs is one somebody typed on purpose.
+  while (lines.length > 0 && !lines[0]) lines.shift();
+  while (lines.length > 0 && !lines[lines.length - 1]) lines.pop();
+  return lines;
 }
 
 /**
@@ -55,13 +93,27 @@ function ensureTerminal(text: string, terminator: string): string {
  * voice engine never has to read a stray comma or a doubled full stop.
  */
 function tidy(text: string): string {
+  return trimTrailingPunctuation(tidyWithin(text));
+}
+
+/**
+ * Everything tidy does except strip punctuation off the end.
+ *
+ * Split out for printed lines: a comma at the end of a line is usually one
+ * somebody typed on purpose before pressing return, not debris from a dropped
+ * optional block, and eating it turns their sentence into two fragments.
+ */
+function tidyWithin(text: string): string {
   return text
     .replace(/\s+/g, ' ')
     .replace(/\s+([,.।;:!?])/g, '$1')
     .replace(/([,.।;:])\1+/g, '$1')
     .replace(/^[\s,.;:—–-]+/, '')
-    .replace(/[\s,;:—–-]+$/, '')
     .trim();
+}
+
+function trimTrailingPunctuation(text: string): string {
+  return text.replace(/[\s,;:—–-]+$/, '').trim();
 }
 
 function templatesFor(event: Event, language: string): TemplateSet | undefined {

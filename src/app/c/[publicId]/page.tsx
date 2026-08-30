@@ -11,7 +11,8 @@ import {
   recipientTypesFor,
   printWordingFor,
 } from '@/lib/recipient-types';
-import { renderTemplate } from '@/lib/script';
+import { RichText } from '@/components/rich-text';
+import { renderPrintedLines } from '@/lib/script';
 import { CertificatePlayer } from './player';
 
 export async function generateMetadata({ params }: PageProps<'/c/[publicId]'>): Promise<Metadata> {
@@ -80,8 +81,10 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
       .join(', '),
   };
   const wording = printWordingFor(type, certificate.award, event.printWording);
-  const recognition = renderTemplate(wording.recognition, printVars);
-  const closing = renderTemplate(wording.closing, printVars);
+  // The same lines the sheet carries, with their breaks and their bold intact.
+  const lead = renderPrintedLines(wording.lead, printVars);
+  const recognition = renderPrintedLines(wording.recognition, printVars);
+  const closing = renderPrintedLines(wording.closing, printVars);
 
   /*
    * A web page has no corners the way an A4 sheet does, so the position setting
@@ -100,40 +103,64 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
   return (
     <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:py-16">
       <article>
-        <header
-          className={`mb-8 flex items-center gap-5 border-b-4 border-teal-800 pb-6 ${
-            logoAtTop && isLeft(event.logoPosition) ? 'flex-row-reverse justify-end' : ''
-          }`}
-        >
-          <div className="flex-1">
-            <p className="text-lg font-bold tracking-wide text-teal-800 uppercase">{event.name}</p>
-            <p className="text-ink-soft">
+        {/*
+          A matching spacer opposite the logo, so the name lands on the middle of
+          the column rather than the middle of what the logo leaves over. Narrow
+          on a phone, where every millimetre of the heading's width counts.
+        */}
+        <header className="mb-8 flex items-center gap-4 border-b-4 border-teal-800 pb-6">
+          {logoAtTop && <span className="w-16 shrink-0 sm:w-24">{logo}</span>}
+          <div className="flex-1 text-center">
+            <p className="text-2xl font-bold tracking-wide text-teal-800 uppercase sm:text-3xl">
+              {event.name}
+            </p>
+            <p className="mt-1 text-lg text-ink-soft">
               {event.orgName}
               {event.eventDate && ` · ${event.eventDate}`}
             </p>
           </div>
-          {logoAtTop && logo}
+          {logoAtTop && <span className="w-16 shrink-0 sm:w-24" aria-hidden="true" />}
         </header>
 
-        <p className="text-xl text-ink-soft">This certificate is awarded to</p>
-        <h1 className="mt-1 mb-4 text-5xl leading-tight font-bold text-balance sm:text-6xl">
-          {certificate.studentName}
-        </h1>
+        {/*
+          Centred to match the printed sheet, so the two read as the same
+          certificate. It stops here: the transcript below is several paragraphs
+          of prose, and centred prose is genuinely harder to track line to line
+          for the readers this page exists for. Short lines can carry it; a long
+          read cannot.
 
-        <p className="inline-block rounded-lg bg-teal-100 px-4 py-2 text-2xl font-bold text-teal-900">
-          {certificate.award}
-        </p>
+          The wording is whatever Settings resolved -- a group's or a prize's own
+          line if it has one -- and only its alignment is decided here.
+        */}
+        <div className="text-center">
+          {lead.length > 0 && (
+            <p className="text-xl text-ink-soft">
+              <RichText lines={lead} />
+            </p>
+          )}
+          <h1 className="mt-1 mb-4 text-5xl leading-tight font-bold text-balance sm:text-6xl">
+            {certificate.studentName}
+          </h1>
 
-        {/* The same recognition and closing lines the printed sheet carries, so
-            paper and screen say the same thing. Left aligned and at the page's
-            own size rather than centred to match the print layout: centred
-            prose is harder going for the readers this page exists for. */}
-        {(recognition || closing) && (
-          <div className="mt-6 flex flex-col gap-3 text-xl leading-relaxed">
-            {recognition && <p>{recognition}</p>}
-            {closing && <p className="font-bold">{closing}</p>}
-          </div>
-        )}
+          <p className="inline-block rounded-lg bg-teal-100 px-4 py-2 text-2xl font-bold text-teal-900">
+            {certificate.award}
+          </p>
+
+          {(recognition.length > 0 || closing.length > 0) && (
+            <div className="mt-6 flex flex-col gap-3 text-xl leading-relaxed text-balance">
+              {recognition.length > 0 && (
+                <p>
+                  <RichText lines={recognition} />
+                </p>
+              )}
+              {closing.length > 0 && (
+                <p className="font-bold">
+                  <RichText lines={closing} />
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="mt-8">
         {audioUrl ? (
@@ -221,17 +248,30 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
           </div>
 
           {/*
-            No "Presented by" heading over this row, unlike the printed sheet:
-            the sentence directly above already says it, and repeating it would
-            have a screen reader read the phrase twice in a row. The logos read
-            as a continuation of that sentence.
-
-            Left-aligned rather than centred as on paper, because this page is a
-            single column of left-aligned text -- the same reasoning that makes
-            lib/logo.ts map printed corners onto bands here.
+            The same caption the printed sheet carries, so the two agree on what
+            this row is. It is a heading for the list rather than a sentence, and
+            `aria-labelledby` ties the two together so a screen reader announces
+            the group before reading the names out of it.
           */}
           {event.partnerLogos.length > 0 && (
-            <ul className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <section
+              // Only when there is a heading to point at: a dangling reference
+              // leaves the section unnamed and the attribute lying about it.
+              aria-labelledby={event.partnerLabel.trim() ? 'partners-heading' : undefined}
+              // Shrink-wrapped around the logos so that centring the caption
+              // centres it over them. As a full-width block its own middle is
+              // the column's middle, which is nowhere near the marks it labels.
+              className="mt-6 w-fit max-w-full"
+            >
+              {event.partnerLabel.trim() && (
+                <h2
+                  id="partners-heading"
+                  className="mb-2 text-center text-sm font-bold tracking-wide uppercase"
+                >
+                  {event.partnerLabel}
+                </h2>
+              )}
+            <ul className="flex flex-wrap items-center gap-x-8 gap-y-4">
               {event.partnerLogos.map((partner) => (
                 <li key={partner.url}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob or static URL from an untyped host */}
@@ -244,6 +284,7 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
                 </li>
               ))}
             </ul>
+            </section>
           )}
         </footer>
       </article>

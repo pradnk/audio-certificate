@@ -1,8 +1,10 @@
 import {
   DEFAULT_CERTIFICATE_LAYOUT,
   DEFAULT_PARTNER_LABEL,
+  DEFAULT_EVENT_NAME_POSITION,
   DEFAULT_PARTNER_LOGO_POSITION,
   type CertificateLayout,
+  type EventNamePosition,
   type PartnerLogoPosition,
 } from '@/lib/certificate-layout';
 import type { LogoPosition } from '@/lib/logo';
@@ -94,6 +96,12 @@ export const events = pgTable('events', {
    * Defaults to the original so that an event which has already handed out
    * certificates keeps printing the same ones.
    */
+  /** Where the event's name sits on the centred sheet. */
+  eventNamePosition: text('event_name_position')
+    .$type<EventNamePosition>()
+    .notNull()
+    .default(DEFAULT_EVENT_NAME_POSITION),
+
   certificateLayout: text('certificate_layout')
     .$type<CertificateLayout>()
     .notNull()

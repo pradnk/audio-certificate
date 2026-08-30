@@ -64,3 +64,25 @@ const MAX_PARTNER_LABEL_LENGTH = 60;
 export function normalisePartnerLabel(value: string | null | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_PARTNER_LABEL_LENGTH);
 }
+
+/**
+ * Where the event's name sits on the centred sheet.
+ *
+ * Beside the organisation's logo the header reads as a masthead running along
+ * one edge; centred, it reads as the top of a formal certificate with the marks
+ * flanking it. Which is right depends on how long the name is, so it is a
+ * setting rather than a decision made here. Either way the name stays inside
+ * the header band -- it is not a separate line below it.
+ */
+export const EVENT_NAME_POSITIONS = [
+  { value: 'left', label: 'Left, beside the logo' },
+  { value: 'centre', label: 'Centred, between the logo and the partners' },
+] as const;
+
+export type EventNamePosition = (typeof EVENT_NAME_POSITIONS)[number]['value'];
+
+export const DEFAULT_EVENT_NAME_POSITION: EventNamePosition = 'left';
+
+export function isEventNamePosition(value: unknown): value is EventNamePosition {
+  return EVENT_NAME_POSITIONS.some((position) => position.value === value);
+}

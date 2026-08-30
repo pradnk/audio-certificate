@@ -7,11 +7,14 @@ import { redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/auth-server';
 import {
   DEFAULT_CERTIFICATE_LAYOUT,
+  DEFAULT_EVENT_NAME_POSITION,
   DEFAULT_PARTNER_LOGO_POSITION,
   isCertificateLayout,
+  isEventNamePosition,
   isPartnerLogoPosition,
   normalisePartnerLabel,
   type CertificateLayout,
+  type EventNamePosition,
   type PartnerLogoPosition,
 } from '@/lib/certificate-layout';
 import { mostRecentEvent, newEventDefaults, newPublicId, pickDefaultVoice } from '@/lib/data';
@@ -151,6 +154,8 @@ export type EventSettings = {
   partnerLabel: string;
   /** Which printed arrangement to use. See lib/certificate-layout.ts. */
   certificateLayout: CertificateLayout;
+  /** Where the event's name sits on the centred sheet. */
+  eventNamePosition: EventNamePosition;
   /** The words on the printed sheet, as opposed to the spoken templates. */
   printWording: PrintWording;
 };
@@ -188,6 +193,9 @@ export async function updateEvent(eventId: string, settings: EventSettings): Pro
       certificateLayout: isCertificateLayout(settings.certificateLayout)
         ? settings.certificateLayout
         : DEFAULT_CERTIFICATE_LAYOUT,
+      eventNamePosition: isEventNamePosition(settings.eventNamePosition)
+        ? settings.eventNamePosition
+        : DEFAULT_EVENT_NAME_POSITION,
       printWording: normalisePrintWording(settings.printWording),
       updatedAt: new Date(),
     })
