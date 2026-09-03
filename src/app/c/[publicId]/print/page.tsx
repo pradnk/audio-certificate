@@ -2,9 +2,11 @@ import { notFound } from 'next/navigation';
 
 import '@/app/print.css';
 import { PrintableCertificate } from '@/components/printable-certificate';
+import { CertificateDownloads } from '@/components/certificate-downloads';
 import { PrintWarnings } from '@/components/print-warnings';
 import { getCertificateByPublicId } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
+import { certificateFileBase } from '@/lib/filename';
 import { qrDataUrl } from '@/lib/qr';
 import { PrintButton } from './print-button';
 
@@ -46,6 +48,15 @@ export default async function PrintCertificatePage({
       <PrintWarnings
         url={url}
         notReady={row.certificate.status === 'ready' ? [] : [row.certificate.studentName]}
+      />
+      <CertificateDownloads
+        items={[
+          {
+            name: row.certificate.studentName,
+            fileBase: certificateFileBase(row.event.name, row.certificate.studentName),
+            audioUrl: row.certificate.status === 'ready' ? row.certificate.audioUrl : null,
+          },
+        ]}
       />
       <PrintableCertificate
         event={row.event}

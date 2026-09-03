@@ -439,7 +439,62 @@ Listen on a **phone speaker**, not headphones. That is how families will hear it
 - **Download all as ZIP** gives you all the sound files, named after each
   recipient, ready to attach or forward.
 - **Print all** opens every certificate, one per page, ready to print or save as
-  a single PDF.
+  a single PDF. That page also offers **Download N as files** — see below.
+
+### Sending one person their certificate
+
+Open anyone's certificate link and add `/print` to the address, and you get two
+buttons above the sheet:
+
+- **Download as PDF** — just the printed certificate, on one A4 page.
+- **Download PDF and audio** — a ZIP holding the same PDF and the MP3, which is
+  the one to forward to a family who wants both.
+
+Files are named after the event and the person, so
+`Curious-Minds-2026-Nandini.pdf` arrives already labelled and needs no renaming
+before you send it.
+
+### Sending everybody their certificates
+
+**Download N as files** on the print page builds one ZIP with **a folder per
+recipient**, and inside each folder that person's certificate PDF and their MP3:
+
+```
+Curious-Minds-2026-certificates.zip
+├── Curious-Minds-2026-Nisha-Ranga-Rao-Memorial-School-for-Differently-Abled/
+│   ├── Curious-Minds-2026-Nisha-Ranga-Rao-Memorial-School-for-Differently-Abled.pdf
+│   └── Curious-Minds-2026-Nisha-Ranga-Rao-Memorial-School-for-Differently-Abled.mp3
+├── Curious-Minds-2026-Nisha-Karnatak-Welfare-Association-for-the-Blind/
+│   ├── ...
+└── ...
+```
+
+Unzip it and each folder is ready to forward as it is.
+
+**Folders are named after the event, the person and their school**, so two
+recipients called Nisha are told apart at a glance and you can see who a folder
+belongs to without opening it. Somebody with no school recorded is named after
+the event and themselves.
+
+**If a name and a school are not enough to tell two people apart**, Taali says so
+above the download button, by name, before you build anything:
+
+> Two people share a name and a school, so their folders cannot be told apart:
+> Nisha (×2).
+
+Almost always that is the same person entered twice, so the fix is on the
+recipients list. Download anyway and the repeat is numbered
+(`…-Differently-Abled-2`) rather than quietly dropped — nobody loses a
+certificate to a clash you have not got round to fixing.
+
+The same naming and the same warning apply to **Download all as ZIP**, the
+sound-files-only download.
+
+> **A whole event is a big download.** Each certificate is about half a megabyte
+> and each recording about three quarters, so 235 people come to roughly 290 MB
+> and several minutes of work in the browser tab. Leave the tab open and in front
+> of you while it runs. For a large event it is usually easier to tick a class or
+> a group in the list and use **Print or download these N** instead.
 
 > **When printing:** in your browser's print dialog choose *Save as PDF* and
 > switch on **Background graphics**. Without it the coloured border and the
@@ -573,6 +628,10 @@ everybody ticked at once. Each control acts as soon as you choose from it.
 
 **Make these N again** re-records just the ticked rows, which is the quick way
 back after a bulk change.
+
+**Print or download these N** opens the print page holding only the ticked
+people, so you can print one class at a time or build a ZIP of just their
+certificates and recordings rather than the whole event.
 
 Anything you change this way marks those certificates as needing to be made
 again, for the same reason a single edit does: the recording would otherwise say

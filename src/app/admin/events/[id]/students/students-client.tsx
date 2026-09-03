@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 
 import { deleteCertificate, setReviewed, updateCertificatesBulk } from '@/app/admin/actions';
-import { Alert, Button, Card, Field, Select, cx } from '@/components/ui';
+import { Alert, Button, Card, Field, LinkButton, Select, cx } from '@/components/ui';
 import { recipientTypeFor, recipientTypesFor, type RecipientType } from '@/lib/recipient-types';
 import { mapLimit } from '@/lib/concurrency';
 import type { Certificate, Event } from '@/lib/db/schema';
-import { certificateFileBase } from '@/lib/filename';
+import { certificateFileBase, resolveFileBases } from '@/lib/filename';
 import {
   STAGE_LABELS,
   generateCertificate,
@@ -200,13 +200,18 @@ export function StudentsClient({
 
     try {
       const zip = new JSZip();
-      await mapLimit(ready, 4, async (row) => {
+      // Flat files in one ZIP, so two recipients of one name would overwrite
+      // each other. The school tells them apart, and settles the rest.
+      const { bases, clashes } = resolveFileBases(
+        ready.map((row) => ({
+          name: row.studentName,
+          fileBase: certificateFileBase(event.name, row.studentName, row.school),
+        })),
+      );
+      await mapLimit(ready, 4, async (row, index) => {
         const response = await fetch(row.audioUrl!);
         if (!response.ok) throw new Error(`Could not download ${row.studentName}'s audio.`);
-        zip.file(
-          `${certificateFileBase(event.name, row.studentName)}.mp3`,
-          await response.arrayBuffer(),
-        );
+        zip.file(`${bases[index]}.mp3`, await response.arrayBuffer());
       });
 
       const blob = await zip.generateAsync({ type: 'blob' });
@@ -216,7 +221,13 @@ export function StudentsClient({
       link.download = `${certificateFileBase(event.name, 'all-certificates')}.zip`;
       link.click();
       URL.revokeObjectURL(url);
-      setNotice(`Downloaded ${ready.length} certificates.`);
+      setNotice(
+        `Downloaded ${ready.length} certificates.` +
+          (clashes.length > 0
+            ? ` ${clashes.map((clash) => clash.names[0]).join(', ')} appear more than once with` +
+              ' the same school, so those files are numbered — worth checking the list.'
+            : ''),
+      );
     } catch (caught) {
       setNotice('');
       setError(caught instanceof Error ? caught.message : 'Could not build the ZIP.');
@@ -316,6 +327,7 @@ export function StudentsClient({
               types={types}
               count={selectedRows.length}
               busy={batchRunning}
+              filesHref={`/admin/events/${event.id}/print?only=${selectedRows.map((row) => row.id).join(',')}`}
               onApply={applyToSelected}
               onRegenerate={() => generateAll(selectedRows)}
               onClear={() => setSelected(new Set())}
@@ -367,6 +379,7 @@ function BulkActions({
   types,
   count,
   busy,
+  filesHref,
   onApply,
   onRegenerate,
   onClear,
@@ -374,6 +387,8 @@ function BulkActions({
   types: RecipientType[];
   count: number;
   busy: boolean;
+  /** Where the chosen few can be printed, or saved as files to send. */
+  filesHref: string;
   onApply: (changes: { award?: string; recipientType?: string; language?: string }) => void;
   onRegenerate: () => void;
   onClear: () => void;
@@ -476,9 +491,14 @@ function BulkActions({
         </Field>
       </div>
 
-      <Button onClick={onRegenerate} disabled={busy} className="mt-4">
-        {busy ? 'Making…' : `Make these ${count} again`}
-      </Button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button onClick={onRegenerate} disabled={busy}>
+          {busy ? 'Making…' : `Make these ${count} again`}
+        </Button>
+        <LinkButton variant="secondary" href={filesHref}>
+          Print or download these {count}
+        </LinkButton>
+      </div>
     </div>
   );
 }

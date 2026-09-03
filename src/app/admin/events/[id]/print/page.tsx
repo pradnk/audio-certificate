@@ -3,9 +3,11 @@ import { notFound } from 'next/navigation';
 import '@/app/print.css';
 import { PrintButton } from '@/app/c/[publicId]/print/print-button';
 import { PrintableCertificate } from '@/components/printable-certificate';
+import { CertificateDownloads } from '@/components/certificate-downloads';
 import { PrintWarnings } from '@/components/print-warnings';
 import { getEvent, listCertificates } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
+import { certificateFileBase } from '@/lib/filename';
 import { qrDataUrl } from '@/lib/qr';
 
 export const dynamic = 'force-dynamic';
@@ -23,13 +25,28 @@ export async function generateMetadata({ params }: PageProps<'/admin/events/[id]
  * file or send to a print shop, which is what an organiser actually wants --
  * rather than forty-five separate downloads to collate by hand.
  */
-export default async function PrintAllPage({ params }: PageProps<'/admin/events/[id]/print'>) {
+export default async function PrintAllPage({
+  params,
+  searchParams,
+}: PageProps<'/admin/events/[id]/print'>) {
   const { id } = await params;
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const rows = await listCertificates(id);
+  const all = await listCertificates(id);
   const origin = siteUrl();
+
+  /*
+   * `?only=` narrows the page to a chosen few, which is how a selection made on
+   * the recipients page arrives here: that page has the ticks, this one has the
+   * certificates. An id that no longer exists is simply not found, so a stale
+   * link shows fewer sheets rather than an error.
+   */
+  const only = String((await searchParams).only ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const rows = only.length > 0 ? all.filter((row) => only.includes(row.id)) : all;
 
   const pages = await Promise.all(
     rows.map(async (certificate) => {
@@ -48,10 +65,26 @@ export default async function PrintAllPage({ params }: PageProps<'/admin/events/
         url={origin}
         notReady={rows.filter((row) => row.status !== 'ready').map((row) => row.studentName)}
       />
+      {pages.length > 0 && (
+        <CertificateDownloads
+          items={pages.map(({ certificate }) => ({
+            name: certificate.studentName,
+            fileBase: certificateFileBase(
+              event.name,
+              certificate.studentName,
+              certificate.school,
+            ),
+            audioUrl: certificate.status === 'ready' ? certificate.audioUrl : null,
+          }))}
+          zipName={certificateFileBase(event.name, 'certificates')}
+        />
+      )}
 
       {pages.length === 0 && (
         <p className="print-hide mx-auto max-w-4xl px-5">
-          There is nobody in this event yet.
+          {all.length === 0
+            ? 'There is nobody in this event yet.'
+            : 'None of the people you chose are in this event any more.'}
         </p>
       )}
 
