@@ -24,7 +24,7 @@ export const IMPORT_COLUMNS = [
   'Name',
   'Say it like',
   'School',
-  'City',
+  'City or state',
   'Class',
   'Project title',
   'Description',
@@ -38,7 +38,11 @@ const HEADER_ALIASES: Record<string, string[]> = {
   studentName: ['name', 'student', 'student name', 'full name'],
   namePronunciation: ['say it like', 'pronunciation', 'pronounce', 'phonetic', 'say as'],
   school: ['school', 'institution'],
-  city: ['city', 'town', 'place'],
+  // One field for wherever they are, because it is only ever joined onto the
+  // school: "from Delhi Public School, Karnataka" reads the same whether that
+  // second part is a city or a state, and asking for both would mean a column
+  // most sheets leave empty.
+  city: ['city', 'town', 'place', 'state', 'region', 'province', 'city or state'],
   className: ['class', 'grade', 'std', 'standard'],
   projectTitle: ['project title', 'project', 'exhibit', 'title', 'experiment'],
   projectBlurb: ['description', 'blurb', 'about', 'details', 'one line', 'summary'],
@@ -263,8 +267,8 @@ export function parseStudentList(
  * demonstrates a prize the event does not hand out.
  */
 export function csvTemplate(awards: readonly string[] = [], typeLabel = ''): string {
-  const columns = ['Name', 'School', 'City', 'Award'];
-  const example = ['Ravi Kumar', 'ACTS Secondary School', 'Bengaluru', awards[0] ?? 'First Prize'];
+  const columns = ['Name', 'School', 'City or state', 'Award'];
+  const example = ['Ravi Kumar', 'ACTS Secondary School', 'Karnataka', awards[0] ?? 'First Prize'];
 
   if (typeLabel) {
     columns.push('Type');

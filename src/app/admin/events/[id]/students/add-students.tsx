@@ -157,7 +157,11 @@ function SingleStudentForm({
           {(props) => <Input {...props} name="school" autoComplete="off" />}
         </Field>
 
-        <Field id="city" label="City (optional)">
+        <Field
+          id="city"
+          label="City or state (optional)"
+          hint="Whichever suits. It is joined onto the school — “from Delhi Public School, Karnataka”."
+        >
           {(props) => <Input {...props} name="city" autoComplete="off" />}
         </Field>
 
@@ -301,7 +305,7 @@ function BulkImport({
         </p>
         <p className="text-ink-soft">
           Put those names in the first row and add whichever of these you have — in any order,
-          leaving out the rest: <strong>School</strong> · <strong>City</strong>
+          leaving out the rest: <strong>School</strong> · <strong>City or state</strong>
           {types.length > 1 && (
             <>
               {' '}

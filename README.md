@@ -200,7 +200,7 @@ any order. A column Taali does not recognise is ignored, so you can usually
 paste your working sheet as it is.
 
 **Download a template spreadsheet** gives you the columns most events fill in —
-Name, School, City, Award, and Type when there is more than one group.
+Name, School, City or state, Award, and Type when there is more than one group.
 
 #### Five sheets that work
 
@@ -218,14 +218,19 @@ Meera Nair,Certificate of Participation
 > Adds two people. With no **Type** column they go to whichever group is
 > selected above the paste box.
 
-**2. With where they are from.** School and city print on the certificate and
-are read aloud.
+**2. With where they are from.** School and place print on the certificate and
+are read aloud, joined with a comma.
 
 ```csv
-Name,School,City,Award
-Ravi Kumar,ACTS Secondary School,Bengaluru,First Prize
-Meera Nair,St Anne's High School,Kochi,Certificate of Participation
+Name,School,State,Award
+Ravi Kumar,ACTS Secondary School,Karnataka,First Prize
+Meera Nair,St Anne's High School,Kerala,Certificate of Participation
 ```
+
+> *"from ACTS Secondary School, Karnataka"*. `City` works exactly the same way —
+> it is one field either way, so a school that already carries its city in its
+> name (*Delhi Public School, Bangalore North*) can put the state in this column
+> and still read correctly.
 
 **3. Students and teachers in one sheet.** Add **Type** and each row goes to its
 own group — which decides the prizes it is checked against, and the words on the
@@ -272,7 +277,7 @@ Meera Nair,St Anne's High School
 | 1 | **Name** | **Yes** | The name as it should be spelled on the certificate — `Ravi Kumar`. This is also what the voice reads, unless column 2 says otherwise. |
 | 2 | **Say it like** | no | A sounds-like spelling, used *only* by the voice — `RUH-vee KOO-mar`. The certificate still shows the real spelling. Leave it empty unless the voice gets the name wrong. |
 | 3 | **School** | no | `ACTS Secondary School`. Spoken as part of "from …". |
-| 4 | **City** | no | `Bengaluru`. Joined onto the school when both are given. |
+| 4 | **City or state** | no | `Bengaluru`, or `Karnataka` — whichever your list keeps. It is joined onto the school, so both read the same: *"from Delhi Public School, Karnataka"*. Headed `City`, `Town`, `Place`, `State`, `Region` or `Province`, whichever your sheet already says. |
 | 5 | **Class** | no | `Class 8`. Free text — write it however you say it. |
 | 6 | **Project title** | no | What they showed or did — `Talking Thermometer`. |
 | 7 | **Description** | no | One sentence about it. One sentence really is plenty; it is read aloud. |
@@ -300,7 +305,7 @@ underscores, and it accepts the obvious synonyms:
 | Name | `Name` · `Student` · `Student name` · `Full name` |
 | Say it like | `Say it like` · `Pronunciation` · `Pronounce` · `Phonetic` · `Say as` |
 | School | `School` · `Institution` |
-| City | `City` · `Town` · `Place` |
+| City or state | `City` · `Town` · `Place` · `State` · `Region` · `Province` |
 | Class | `Class` · `Grade` · `Std` · `Standard` |
 | Project title | `Project title` · `Project` · `Exhibit` · `Title` · `Experiment` |
 | Description | `Description` · `Blurb` · `About` · `Details` · `One line` · `Summary` |
