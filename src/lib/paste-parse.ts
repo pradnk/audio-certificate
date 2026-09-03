@@ -42,7 +42,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   // school: "from Delhi Public School, Karnataka" reads the same whether that
   // second part is a city or a state, and asking for both would mean a column
   // most sheets leave empty.
-  city: ['city', 'town', 'place', 'state', 'region', 'province', 'city or state'],
+  city: ['city', 'town', 'place', 'state', 'state/ut', 'district', 'region', 'province', 'city or state'],
   className: ['class', 'grade', 'std', 'standard'],
   projectTitle: ['project title', 'project', 'exhibit', 'title', 'experiment'],
   projectBlurb: ['description', 'blurb', 'about', 'details', 'one line', 'summary'],
@@ -186,6 +186,24 @@ export function parseStudentList(
         'recipientType',
         'language',
       ];
+
+  /*
+   * A header Taali does not recognise is skipped further down, silently -- and
+   * a silently dropped column is the worst kind of import bug, because the
+   * upload succeeds, the names are all right, and nobody notices that State
+   * never arrived until a certificate is printed without it. So say so.
+   */
+  if (usedHeader) {
+    const ignored = cells[0].filter((cell, column) => cell.trim() && !headerMatches[column]);
+    if (ignored.length > 0) {
+      warnings.push(
+        `${ignored.map((cell) => `“${cell.trim()}”`).join(' and ')} ` +
+          `${ignored.length === 1 ? 'is not a column' : 'are not columns'} Taali knows, so ` +
+          `${ignored.length === 1 ? 'it was' : 'they were'} ignored. ` +
+          'Accepted names are listed under the box; check the spelling if you meant one of them.',
+      );
+    }
+  }
 
   const dataRows = usedHeader ? cells.slice(1) : cells;
   const rows: CertificateInput[] = [];

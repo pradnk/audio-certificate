@@ -197,7 +197,17 @@ can fix the sheet and paste again as many times as you like. There is a
 **You need two columns: Name and Award.** Everything else is optional — put the
 column names in the first row and include only the ones you actually have, in
 any order. A column Taali does not recognise is ignored, so you can usually
-paste your working sheet as it is.
+paste your working sheet as it is — and it **says which columns it ignored**
+before you import, so a heading it did not recognise cannot cost you a whole
+column without your noticing:
+
+> “State Name” is not a column Taali knows, so it was ignored. Accepted names
+> are listed under the box; check the spelling if you meant one of them.
+
+If you see that about a column you meant to use, the spelling is the fix. For
+where somebody is from, Taali accepts **City**, **State**, **State/UT**,
+**District**, **Town**, **Place**, **Region** or **Province** — they are all the
+same single field.
 
 **Download a template spreadsheet** gives you the columns most events fill in —
 Name, School, City or state, Award, and Type when there is more than one group.
