@@ -91,13 +91,20 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
    * maps onto the two bands it does have: top puts the logo in the header,
    * bottom in the footer, and left/right decides the side within that band.
    *
-   * alt="" because the organisation's name sits beside it as text; a text
-   * alternative here would only make a screen reader say the name twice.
+   * The alt depends on which band it lands in, under the rule that governs every
+   * image here: empty only when the same name is already text beside it. The
+   * footer says "Presented by ..." right next to the logo, so there it is
+   * decorative. The header says only the event's name, so there the logo is the
+   * one thing carrying the organisation and has to say so.
    */
   const logoAtTop = Boolean(event.logoUrl) && isTop(event.logoPosition);
   const logo = event.logoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob URL from an untyped host
-    <img src={event.logoUrl} alt="" className="max-h-16 max-w-36 object-contain" />
+    <img
+      src={event.logoUrl}
+      alt={logoAtTop ? event.orgName : ''}
+      className="max-h-16 max-w-36 object-contain"
+    />
   ) : null;
 
   return (
@@ -111,12 +118,13 @@ export default async function CertificatePage({ params }: PageProps<'/c/[publicI
         <header className="mb-8 flex items-center gap-4 border-b-4 border-teal-800 pb-6">
           {logoAtTop && <span className="w-16 shrink-0 sm:w-24">{logo}</span>}
           <div className="flex-1 text-center">
+            {/*
+              The event's name and nothing else. The organisation is named in the
+              footer, under "Presented by", where it belongs on a page whose
+              subject is the person the certificate is for.
+            */}
             <p className="text-2xl font-bold tracking-wide text-teal-800 uppercase sm:text-3xl">
               {event.name}
-            </p>
-            <p className="mt-1 text-lg text-ink-soft">
-              {event.orgName}
-              {event.eventDate && ` · ${event.eventDate}`}
             </p>
           </div>
           {logoAtTop && <span className="w-16 shrink-0 sm:w-24" aria-hidden="true" />}
