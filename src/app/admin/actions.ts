@@ -1,6 +1,6 @@
 'use server';
 
-import { eq, inArray, max } from 'drizzle-orm';
+import { asc, eq, inArray, max } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -23,6 +23,7 @@ import { db } from '@/lib/db';
 import { certificates, events, type ScriptSnapshot } from '@/lib/db/schema';
 import { DEFAULT_LOGO_POSITION, isLogoPosition, type LogoPosition } from '@/lib/logo';
 import { normalisePartnerLogos, type PartnerLogo } from '@/lib/partners';
+import { recipientKey } from '@/lib/paste-parse';
 import { normalisePrintWording, type PrintWording } from '@/lib/print-wording';
 import { normaliseSignatures, type Signature } from '@/lib/signatures';
 import { normaliseRecipientTypes, type RecipientType } from '@/lib/recipient-types';
@@ -276,34 +277,119 @@ function clean(input: CertificateInput) {
   };
 }
 
+/**
+ * Adds a list of people, updating anybody already there rather than repeating
+ * them.
+ *
+ * Pasting a corrected sheet is how a spreadsheet gets fixed, so a second import
+ * of the same list has to mean "here is the list again", not "here they all are
+ * a second time". Matching is on name and group; see recipientKey.
+ *
+ * A row whose details are unchanged is left completely alone -- not rewritten
+ * with identical values -- because rewriting it would mark the certificate as
+ * needing to be made again and throw away a recording that is still correct.
+ * That is the difference between re-uploading a list to fix one award and
+ * re-recording forty certificates for nothing.
+ */
 export async function addCertificates(
   eventId: string,
   inputs: CertificateInput[],
-): Promise<{ added: number }> {
+): Promise<{ added: number; updated: number; unchanged: number }> {
   await assertAdmin();
   await assertNotArchived(eventId);
 
   const cleaned = inputs.map(clean).filter((row) => row.studentName && row.award);
-  if (cleaned.length === 0) return { added: 0 };
+  if (cleaned.length === 0) return { added: 0, updated: 0, unchanged: 0 };
 
-  // Append after whatever is already there, so an imported list keeps the order
-  // it had in the spreadsheet and later imports land underneath it.
-  const [{ highest } = { highest: null }] = await db()
-    .select({ highest: max(certificates.sortIndex) })
+  const existing = await db()
+    .select()
     .from(certificates)
-    .where(eq(certificates.eventId, eventId));
+    .where(eq(certificates.eventId, eventId))
+    .orderBy(asc(certificates.sortIndex));
 
-  const start = (highest ?? -1) + 1;
-  const rows = cleaned.map((row, index) => ({
-    ...row,
-    eventId,
-    publicId: newPublicId(),
-    sortIndex: start + index,
-  }));
+  // The earliest row wins when a list already holds the same name twice: it is
+  // the one whose link has been out in the world longest.
+  const byKey = new Map<string, (typeof existing)[number]>();
+  for (const row of existing) {
+    const key = recipientKey(row.studentName, row.recipientType);
+    if (!byKey.has(key)) byKey.set(key, row);
+  }
 
-  await db().insert(certificates).values(rows);
+  const FIELDS = [
+    'studentName',
+    'namePronunciation',
+    'school',
+    'city',
+    'className',
+    'projectTitle',
+    'projectBlurb',
+    'award',
+    'recipientType',
+    'language',
+  ] as const;
+
+  const toInsert: (typeof cleaned)[number][] = [];
+  // Names met for the first time in this sheet. A list that happens to hold
+  // somebody twice adds them once rather than arriving as a pair.
+  const seen = new Set<string>();
+  let updated = 0;
+  let unchanged = 0;
+
+  for (const row of cleaned) {
+    const key = recipientKey(row.studentName, row.recipientType);
+    const match = byKey.get(key);
+
+    if (!match) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        toInsert.push(row);
+      }
+      continue;
+    }
+
+    const changes = FIELDS.filter((field) => (match[field] ?? null) !== (row[field] ?? null));
+    if (changes.length === 0) {
+      unchanged += 1;
+      continue;
+    }
+
+    await db()
+      .update(certificates)
+      .set({
+        ...row,
+        // Any change means the recording no longer matches the details, exactly
+        // as it does for an edit made on the row itself.
+        status: 'draft',
+        reviewed: false,
+        errorMessage: null,
+      })
+      .where(eq(certificates.id, match.id));
+    updated += 1;
+  }
+
+  if (toInsert.length > 0) {
+    // Append after whatever is already there, so an imported list keeps the
+    // order it had in the spreadsheet and later imports land underneath it.
+    const [{ highest } = { highest: null }] = await db()
+      .select({ highest: max(certificates.sortIndex) })
+      .from(certificates)
+      .where(eq(certificates.eventId, eventId));
+
+    const start = (highest ?? -1) + 1;
+    await db()
+      .insert(certificates)
+      .values(
+        toInsert.map((row, index) => ({
+          ...row,
+          eventId,
+          publicId: newPublicId(),
+          sortIndex: start + index,
+        })),
+      );
+  }
+
   revalidatePath(`/admin/events/${eventId}/students`);
-  return { added: rows.length };
+  return { added: toInsert.length, updated, unchanged };
 }
 
 export async function updateCertificate(

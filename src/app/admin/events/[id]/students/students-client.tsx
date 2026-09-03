@@ -253,8 +253,18 @@ export function StudentsClient({
           eventId={event.id}
           defaultLanguage={event.defaultLanguage}
           types={types}
-          onAdded={(count) => {
-            setNotice(`Added ${count} ${count === 1 ? 'person' : 'people'}.`);
+          existing={rows.map((row) => ({ name: row.studentName, type: row.recipientType }))}
+          onAdded={(result) => {
+            const parts = [
+              result.added > 0 && `added ${result.added}`,
+              result.updated > 0 && `updated ${result.updated}`,
+              result.unchanged > 0 && `left ${result.unchanged} unchanged`,
+            ].filter(Boolean);
+            setNotice(
+              parts.length > 0
+                ? `${parts.join(', ')}.${result.updated > 0 ? ' The updated ones need making again.' : ''}`
+                : 'Nothing to add.',
+            );
             router.refresh();
           }}
         />

@@ -6,19 +6,26 @@ import { addCertificates, type CertificateInput } from '@/app/admin/actions';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import { SUPPORTED_LANGUAGES, languageLabel } from '@/lib/languages';
 import { OPTIONAL_COLUMNS, csvTemplate, parseStudentList } from '@/lib/paste-parse';
+import { recipientKey } from '@/lib/paste-parse';
 import type { RecipientType } from '@/lib/recipient-types';
+
+/** What one import did, so the page can say so rather than just "added". */
+type AddResult = { added: number; updated: number; unchanged: number };
 
 export function AddStudents({
   eventId,
   defaultLanguage,
   types,
+  existing,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
   /** The groups this event honours, each with its own prizes. */
   types: RecipientType[];
-  onAdded: (count: number) => void;
+  /** Who is already in the list, so a re-upload can say what it will change. */
+  existing: Array<{ name: string; type: string }>;
+  onAdded: (result: AddResult) => void;
 }) {
   const [mode, setMode] = useState<'one' | 'many'>('one');
 
@@ -55,6 +62,7 @@ export function AddStudents({
           eventId={eventId}
           defaultLanguage={defaultLanguage}
           types={types}
+          existing={existing}
           onAdded={onAdded}
         />
       )}
@@ -71,7 +79,7 @@ function SingleStudentForm({
   eventId: string;
   defaultLanguage: string;
   types: RecipientType[];
-  onAdded: (count: number) => void;
+  onAdded: (result: AddResult) => void;
 }) {
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
   const awards = types.find((type) => type.id === typeId)?.awards ?? [];
@@ -101,9 +109,9 @@ function SingleStudentForm({
     setError('');
     startTransition(async () => {
       try {
-        const { added } = await addCertificates(eventId, [input]);
+        const result = await addCertificates(eventId, [input]);
         formRef.current?.reset();
-        onAdded(added);
+        onAdded(result);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Could not add that person.');
       }
@@ -218,12 +226,14 @@ function BulkImport({
   eventId,
   defaultLanguage,
   types,
+  existing,
   onAdded,
 }: {
   eventId: string;
   defaultLanguage: string;
   types: RecipientType[];
-  onAdded: (count: number) => void;
+  existing: Array<{ name: string; type: string }>;
+  onAdded: (result: AddResult) => void;
 }) {
   const [text, setText] = useState('');
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
@@ -236,6 +246,20 @@ function BulkImport({
     ? parseStudentList(text, { defaultLanguage, defaultAward, types, defaultType: typeId })
     : null;
 
+  // Counted here rather than on the server, so the split between new and
+  // updated is visible before anything is pressed.
+  const known = new Set(existing.map((person) => recipientKey(person.name, person.type)));
+  const willUpdate =
+    preview?.rows.filter((row) => known.has(recipientKey(row.studentName, row.recipientType)))
+      .length ?? 0;
+  const willAdd = (preview?.rows.length ?? 0) - willUpdate;
+  const readyLine = [
+    willAdd > 0 && `Ready to add ${willAdd} ${willAdd === 1 ? 'person' : 'people'}`,
+    willUpdate > 0 && `${willAdd > 0 ? 'and update' : 'Ready to update'} ${willUpdate}`,
+  ]
+    .filter(Boolean)
+    .join(' ') + '.';
+
   const readFile = async (file: File) => {
     setText(await file.text());
   };
@@ -245,9 +269,9 @@ function BulkImport({
     setError('');
     startTransition(async () => {
       try {
-        const { added } = await addCertificates(eventId, preview.rows);
+        const result = await addCertificates(eventId, preview.rows);
         setText('');
-        onAdded(added);
+        onAdded(result);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Could not add those people.');
       }
@@ -388,11 +412,16 @@ function BulkImport({
       {preview && (
         <div aria-live="polite">
           <p className="font-bold">
-            {preview.rows.length === 0
-              ? 'Nothing to add yet.'
-              : `Ready to add ${preview.rows.length} ${preview.rows.length === 1 ? 'person' : 'people'}.`}
+            {preview.rows.length === 0 ? 'Nothing to add yet.' : readyLine}
             {preview.usedHeader && ' Header row detected.'}
           </p>
+          {willUpdate > 0 && (
+            <p className="mt-1 text-ink-soft">
+              Somebody already in the list is matched by name and updated rather than added again,
+              so you can fix a sheet and paste it a second time. An updated certificate has to be
+              made again — a name spelled differently is a new person, not a correction.
+            </p>
+          )}
 
           {preview.problems.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1 text-danger">
@@ -432,7 +461,13 @@ function BulkImport({
         disabled={pending || !preview || preview.rows.length === 0}
         className="self-start"
       >
-        {pending ? 'Adding…' : `Add ${preview?.rows.length ?? 0} to the list`}
+        {pending
+          ? 'Adding…'
+          : willUpdate > 0 && willAdd === 0
+            ? `Update ${willUpdate}`
+            : willUpdate > 0
+              ? `Add ${willAdd}, update ${willUpdate}`
+              : `Add ${willAdd} to the list`}
       </Button>
     </div>
   );

@@ -372,9 +372,23 @@ or with no award and no default set, is listed as skipped and everything else
 still goes in. Nothing is added until you click the **Add** button — and if the
 preview looks wrong, edit your sheet and paste again.
 
-**Adding more later.** Importing again appends to the list; it does not replace
-it. Taali does not match on names, so pasting the same list twice gives you each
-person twice — remove the duplicates with the **Remove** button on each row.
+**Fixing a sheet and pasting it again.** This is the normal way to correct a
+list, and it does not create duplicates. A row whose **name** matches somebody
+already in that group updates them; everybody else is added. The preview says
+which is which before you press anything — *"Ready to add 1 person and update
+3."*
+
+- **A row that has not changed is left completely alone.** Its recording, its
+  link and its "Listened" tick all survive, so re-uploading a list of forty to
+  fix one award does not cost you thirty-nine recordings.
+- **A row that has changed is marked as needing to be made again**, for the same
+  reason editing it on the page would: the recording no longer matches the
+  details. Its link stays the same, so anything already printed still works.
+- **A corrected *name* is a new person.** There is nothing left to match on, so
+  the fixed row is added and the misspelt one stays — remove it with the
+  **Remove** button. Correcting a name on the row itself avoids that.
+- To fix a prize for several people at once, you do not need the sheet at all:
+  tick them on the Recipients page and use the panel that appears.
 
 ## Step 5 — Check every name *(the important one)*
 

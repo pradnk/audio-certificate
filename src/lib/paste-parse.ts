@@ -282,3 +282,16 @@ export const OPTIONAL_COLUMNS = [
   'Description',
   'Language',
 ] as const;
+
+/**
+ * How a row in a sheet is matched to somebody already in the list.
+ *
+ * Name and group, with capitals and spacing ignored, because that is what an
+ * organiser means by "the same person" when they fix a spreadsheet and paste it
+ * again. It follows that a corrected *name* is a new person -- there is nothing
+ * left to match on -- so the screen says so rather than letting anyone assume
+ * the old row went away.
+ */
+export function recipientKey(name: string, recipientType: string | undefined): string {
+  return `${(recipientType ?? '').trim()}::${name.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
