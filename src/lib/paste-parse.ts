@@ -13,6 +13,13 @@ import { SUPPORTED_LANGUAGES } from '@/lib/languages';
  * mistyped name would creep in.
  */
 
+/**
+ * The column order assumed when a sheet has no header row at all.
+ *
+ * Only that: with a header row -- which is the normal way in -- a sheet carries
+ * whichever of these it likes, in any order, and anything missing is simply not
+ * set. See OPTIONAL_COLUMNS for the ones beyond the downloadable template.
+ */
 export const IMPORT_COLUMNS = [
   'Name',
   'Say it like',
@@ -146,10 +153,20 @@ export function parseStudentList(
   const warnings: string[] = [];
   const types = options.types ?? [];
 
-  // A first row whose cells look like column names is treated as a header, and
-  // its order is used. Otherwise assume the documented column order.
+  /*
+   * A first row whose cells look like column names is treated as a header, and
+   * its order is used. Otherwise the documented column order is assumed.
+   *
+   * Two recognised names is proof enough on its own. One is too, as long as
+   * every filled cell in the row is a name Taali knows -- that is what lets a
+   * sheet of nothing but `Name` work. Without it the header became a recipient
+   * called "Name", which is a worse failure than losing a row would have been,
+   * because it prints.
+   */
   const headerMatches = cells[0].map(matchHeader);
-  const usedHeader = headerMatches.filter(Boolean).length >= 2;
+  const recognised = headerMatches.filter(Boolean).length;
+  const filled = cells[0].filter((cell) => cell.trim()).length;
+  const usedHeader = recognised >= 2 || (recognised >= 1 && recognised === filled);
 
   const order = usedHeader
     ? headerMatches
@@ -234,24 +251,34 @@ export function parseStudentList(
 }
 
 /**
- * The template offered as a download, so the columns are never a guess.
+ * The template offered as a download.
  *
- * The example award is the event's own first category rather than a fixed
- * "First Prize", so a downloaded template never demonstrates a prize the event
- * does not hand out.
+ * The columns most events actually fill in, not all ten. A template listing
+ * every optional column reads as a list of things to go and find out, and the
+ * five here are enough to make a certificate: the rest can be added by anyone
+ * who wants them, because a header row means only the columns present are read.
+ *
+ * `Type` appears only when there is more than one group to sort people into,
+ * and the example award is the event's own, so a downloaded template never
+ * demonstrates a prize the event does not hand out.
  */
 export function csvTemplate(awards: readonly string[] = [], typeLabel = ''): string {
-  const example = [
-    'Ravi Kumar',
-    'RUH-vee KOO-mar',
-    'ACTS Secondary School',
-    'Bengaluru',
-    'Class 8',
-    'Talking Thermometer',
-    'It measures the temperature and announces it aloud',
-    awards[0] ?? 'First Prize',
-    typeLabel,
-    'English (India)',
-  ];
-  return `${IMPORT_COLUMNS.join(',')}\n${example.map((cell) => `"${cell}"`).join(',')}\n`;
+  const columns = ['Name', 'School', 'City', 'Award'];
+  const example = ['Ravi Kumar', 'ACTS Secondary School', 'Bengaluru', awards[0] ?? 'First Prize'];
+
+  if (typeLabel) {
+    columns.push('Type');
+    example.push(typeLabel);
+  }
+
+  return `${columns.join(',')}\n${example.map((cell) => `"${cell}"`).join(',')}\n`;
 }
+
+/** The columns beyond the template's, for anyone who wants them. */
+export const OPTIONAL_COLUMNS = [
+  'Say it like',
+  'Class',
+  'Project title',
+  'Description',
+  'Language',
+] as const;

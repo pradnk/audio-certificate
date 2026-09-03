@@ -131,6 +131,9 @@ export function newEventDefaults(
     partnerLabel: previous?.partnerLabel ?? DEFAULT_PARTNER_LABEL,
     certificateLayout: previous?.certificateLayout ?? DEFAULT_CERTIFICATE_LAYOUT,
     eventNamePosition: previous?.eventNamePosition ?? DEFAULT_EVENT_NAME_POSITION,
+    // Not carried forward. A signature belongs to the person who signed this
+    // year's certificates, and inheriting one would sign next year's for them.
+    signatures: [],
     printWording: previous ? { ...previous.printWording } : { ...DEFAULT_PRINT_WORDING },
     voiceId,
     modelId: previous?.modelId ?? MODEL_AUTO,

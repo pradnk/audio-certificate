@@ -60,7 +60,7 @@ Click **Create event**.
 
 ## Step 3 — Check the voice and the wording
 
-Creating an event drops you straight onto its **Students** page. Click
+Creating an event drops you straight onto its **Recipients** page. Click
 **Settings** at the top right to get here. (From the Events list, the same page
 is the **Settings** button next to your event.)
 
@@ -180,22 +180,92 @@ Click **Save settings** when you are done.
 
 ## Step 4 — Add the people
 
-Go back to the event's **Students** page. You have two ways in:
+Go back to the event's **Recipients** page. You have two ways in:
 
-**One at a time** — fill in the form. Only **Student's name** and **Award** are
-required; everything else is optional. The **Award** box suggests your event's
-prize categories as you type.
+**One at a time** — fill in the form. Only **Name** and **Award** are required;
+everything else is optional. The **Award** box suggests the prizes for whichever
+group you have picked.
 
 **Paste a list or upload a file** — select the cells in your spreadsheet, copy
-them, and paste them into the big box. Or upload a CSV file. Taali shows you
-what it understood **before** anything is added, so you can fix the sheet and
-paste again as many times as you like. There is a **Download a template
-spreadsheet** link that gives you the columns already laid out with one example
-row in them.
+them, and paste them into the big box. Or upload a CSV file. **Nothing is added
+until you press the button**: Taali shows you what it understood first, so you
+can fix the sheet and paste again as many times as you like. There is a
+**Download a template spreadsheet** link if you would rather start from a file.
 
 ### The spreadsheet format
 
-**One row per person. Ten columns, in this order:**
+**You need two columns: Name and Award.** Everything else is optional — put the
+column names in the first row and include only the ones you actually have, in
+any order. A column Taali does not recognise is ignored, so you can usually
+paste your working sheet as it is.
+
+**Download a template spreadsheet** gives you the columns most events fill in —
+Name, School, City, Award, and Type when there is more than one group.
+
+#### Five sheets that work
+
+Every one of these is a complete, working sheet. Start with whichever is closest
+to what you already have.
+
+**1. The smallest sheet there is.** Two columns, nothing else.
+
+```csv
+Name,Award
+Ravi Kumar,First Prize
+Meera Nair,Certificate of Participation
+```
+
+> Adds two people. With no **Type** column they go to whichever group is
+> selected above the paste box.
+
+**2. With where they are from.** School and city print on the certificate and
+are read aloud.
+
+```csv
+Name,School,City,Award
+Ravi Kumar,ACTS Secondary School,Bengaluru,First Prize
+Meera Nair,St Anne's High School,Kochi,Certificate of Participation
+```
+
+**3. Students and teachers in one sheet.** Add **Type** and each row goes to its
+own group — which decides the prizes it is checked against, and the words on the
+certificate.
+
+```csv
+Name,School,City,Award,Type
+Ravi Kumar,ACTS Secondary School,Bengaluru,First Prize,Student
+Lakshmi Menon,ACTS Secondary School,Bengaluru,Best Mentor,Teacher
+```
+
+**4. Your own sheet, pasted as it is.** This is the one worth reading. Columns in
+a different order, headings in your own words, a couple of columns Taali has
+never heard of, and a blank cell:
+
+```csv
+Roll no,Full name,Phone,School,Prize,Role
+14,Ravi Kumar,98450 11111,ACTS Secondary School,first prize,Student
+15,Lakshmi Menon,,ACTS Secondary School,Best Mentor,Teacher
+```
+
+> Both people are added correctly. `Roll no` and `Phone` are ignored, because
+> Taali does not recognise them. `Full name`, `Prize` and `Role` are understood
+> as Name, Award and Type. `first prize` is corrected to `First Prize` — the
+> spelling set in Settings is the one that reaches the certificate. The empty
+> phone cell changes nothing.
+
+**5. One award for everybody.** Leave the Award column out altogether and fill in
+**Award for rows that do not have one**, below the paste box.
+
+```csv
+Name,School
+Ravi Kumar,ACTS Secondary School
+Meera Nair,St Anne's High School
+```
+
+> Both get the award you typed in that box. This is the quick way in when a whole
+> list is participation certificates.
+
+#### Everything Taali will read
 
 | # | Column | Required | What goes in it |
 |---|---|---|---|
@@ -207,21 +277,23 @@ row in them.
 | 6 | **Project title** | no | What they showed or did — `Talking Thermometer`. |
 | 7 | **Description** | no | One sentence about it. One sentence really is plenty; it is read aloud. |
 | 8 | **Award** | **Yes** | The prize — `First Prize`. See *[Awards in the sheet](#awards-in-the-sheet)* below. |
-| 9 | **Type** | no | Which group they belong to — `Student`, `Teacher`. Empty means whichever group is chosen above the paste box. Only worth a column if one sheet mixes groups. |
+| 9 | **Type** | no | **Which group they belong to** — `Student`, `Teacher`, matched against the groups in Settings. Empty means whichever group is chosen above the paste box, so you only need this column when one sheet mixes groups. |
 | 10 | **Language** | no | Which language the certificate is spoken in. Empty means the event's default. See *[Languages in the sheet](#languages-in-the-sheet)* below. |
 
 A cell you have nothing for is left empty. An empty cell is not an error — the
 wording closes up around missing details, so a recipient with no school does not
 get a certificate that says "from ,".
 
-**A header row is optional, but recommended.** If the first row looks like column
-headings, Taali uses it and your columns can then be in *any* order, with columns
-you do not need left out entirely. Without a header row Taali assumes exactly the
-ten columns above, in that order.
+**Include a header row.** It is what lets you leave columns out and put the rest
+in any order — every example above has one. Without a header row Taali has to
+assume exactly the ten columns above in that order, and every empty cell still
+needs its comma, because then a value's *position* is the only thing saying
+which column it belongs to.
 
-For a header row to be recognised, at least two of its cells must be names Taali
-knows. It is not fussy about capitals, spaces, hyphens or underscores, and it
-accepts the obvious synonyms:
+A first row counts as a header when two of its cells are names Taali knows — or
+when there is only one column and that cell is a name it knows, so a sheet of
+nothing but `Name` works too. It is not fussy about capitals, spaces, hyphens or
+underscores, and it accepts the obvious synonyms:
 
 | Column | Headings accepted |
 |---|---|
@@ -293,25 +365,11 @@ language](#recipients-can-each-have-their-own-language)*.
 - Completely blank lines are ignored, so a trailing newline at the end of the
   file is fine.
 
-**A complete example**, header row included:
-
-```csv
-Name,Say it like,School,City,Class,Project title,Description,Award,Type,Language
-Ravi Kumar,RUH-vee KOO-mar,ACTS Secondary School,Bengaluru,Class 8,Talking Thermometer,"It measures the temperature, and announces it aloud",First Prize,Student,English (India)
-Meera Nair,,St Anne's High School,Kochi,Class 9,Braille Sorter,,Second Prize,Student,Malayalam
-Lakshmi Menon,,ACTS Secondary School,Bengaluru,,,,Best Mentor,Teacher,
-```
-
-Meera has no sounds-like spelling and no description; Lakshmi is a teacher, so
-the class and exhibit columns are simply left empty. Note that their
-empty cells still need their commas — it is a value's *position* that says which
-column it belongs to, header row or not.
-
 **What the preview tells you.** Before anything is saved, Taali shows how many
 people it is about to add, whether it found a header row, the first few names
 with their awards, and a line for anything it could not use. A row with no name,
 or with no award and no default set, is listed as skipped and everything else
-still goes in. Nothing is added until you click **Add N students** — and if the
+still goes in. Nothing is added until you click the **Add** button — and if the
 preview looks wrong, edit your sheet and paste again.
 
 **Adding more later.** Importing again appends to the list; it does not replace
@@ -525,6 +583,25 @@ On the certificate page, top and bottom become the header and the footer.
 Change it at any time. Existing certificate pages pick up the new logo
 immediately; anything already printed obviously does not.
 
+### Signing the certificates
+
+**Settings → Signatures** takes scanned signatures — two is the usual pair, three
+is the most that fits. They print under the sign-off at the bottom left, and are
+sized to suit however many you upload: one gets the full width, three share it.
+
+- **A scan cropped close to the ink, on white**, sits best. PNG, JPEG, WebP or
+  SVG under 2 MB, the same as any other image here.
+- **Say who signed.** That name is never printed — it is what a screen reader
+  reads out in place of the signature, so write it as you would say it: *"Meera
+  Nair, Trustee"*. A signature with no name is dropped when you save.
+- **They cost the sheet no height.** The space they fill is the space the QR
+  code opposite already takes up — the room that is otherwise left clear to sign
+  by hand. Upload none and it stays clear.
+- **Signatures are not carried over to a new event**, unlike the wording and the
+  logos. A signature belongs to whoever signed this year's certificates.
+- The centred layout is the one with a sign-off to put them under; the classic
+  layout has none, and Settings says so.
+
 ### Adding other organisations' logos
 
 Co-organisers and supporters go under **Settings → Other organisations**. They
@@ -569,7 +646,7 @@ A few things worth knowing:
 | **The link asks me to sign in to Vercel** | Deployment Protection is switched on for the project, so every certificate link is private. In the Vercel dashboard: **Project → Settings → Deployment Protection → Vercel Authentication → Disabled**. Certificate pages are meant to be public — that is the whole point of handing the link to a family. |
 | **"Do not print — these QR codes will stop working"** | `NEXT_PUBLIC_SITE_URL` is set to one deployment's own address rather than the project's. Set it to the permanent address and redeploy — see the settings table in Part 2. |
 | **The QR codes do not scan** | Taali warns you on the print page when this will happen. Do not print until that warning is gone — ask whoever maintains the site. |
-| **A certificate page says "not ready yet"** | That certificate has not been made yet. Go to the event's Students page and click **Make**. |
+| **A certificate page says "not ready yet"** | That certificate has not been made yet. Go to the event's Recipients page and click **Make**. |
 | **Nothing happens when I click Make** | Check the tab is still open and you are still signed in. Reload the page and try again; nothing is lost. |
 
 ---
@@ -828,6 +905,8 @@ src/lib/awards.ts  a group's prize list, and matching a pasted award to one
 src/lib/recipient-types.ts  the groups an event honours, each with its prizes
 src/lib/wording.ts  the three levels wording resolves through: prize, group, event
 src/lib/partners.ts  co-organiser logos shown on the sheet, never spoken
+src/lib/signatures.ts  scanned signatures printed under the sign-off
+src/lib/named-images.ts  the rules both of those lists follow
 src/lib/certificate-layout.ts  which printed arrangement, and where the logos sit
 src/lib/print-wording.ts  the words on the printed sheet (the audio has its own)
 src/lib/paste-parse.ts  reads a pasted or uploaded recipient list

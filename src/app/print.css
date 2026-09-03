@@ -498,6 +498,52 @@
   flex: 1 1 auto;
 }
 
+/*
+ * The sign-off and whatever signs it, as one column on the left of the foot.
+ */
+.certificate-centred-signoff {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * Signatures sit in the room the 32mm code opposite already takes up, so a
+ * signed sheet is no taller than an unsigned one. The width each gets is set
+ * per count rather than left to the flex box: two signatures spread across the
+ * whole column look like two halves of a letterhead, where a fixed width keeps
+ * them reading as signatures with room to breathe between.
+ */
+.certificate-signatures {
+  display: flex;
+  align-items: flex-end;
+  gap: 8mm;
+  margin: 5mm 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.certificate-signature {
+  max-height: 16mm;
+  max-width: 46mm;
+  object-fit: contain;
+}
+
+/* Three have to share the same column, so each takes a little less of it. */
+.certificate-signatures[data-count='3'] {
+  gap: 5mm;
+}
+
+.certificate-signatures[data-count='3'] .certificate-signature {
+  max-height: 14mm;
+  max-width: 31mm;
+}
+
+/* A single signature is not a row, so it gets the room a pen would have had. */
+.certificate-signatures[data-count='1'] .certificate-signature {
+  max-height: 18mm;
+  max-width: 60mm;
+}
+
 .certificate-centred-listen {
   display: flex;
   align-items: flex-start;

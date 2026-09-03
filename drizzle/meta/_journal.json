@@ -71,6 +71,13 @@
       "when": 1788083811013,
       "tag": "0009_event_name_position_values",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788410871194,
+      "tag": "0010_signatures",
+      "breakpoints": true
     }
   ]
 }

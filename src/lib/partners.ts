@@ -1,3 +1,4 @@
+import { normaliseNamedImages, type NamedImage } from '@/lib/named-images';
 import { LOGO_CONTENT_TYPES, LOGO_MAX_BYTES } from '@/lib/logo';
 
 /**
@@ -19,22 +20,10 @@ import { LOGO_CONTENT_TYPES, LOGO_MAX_BYTES } from '@/lib/logo';
  * the institutions. See lib/script.ts, which has no notion of these at all.
  */
 
-export type PartnerLogo = {
-  url: string;
-  /**
-   * The organisation's name. Not printed anywhere -- it is the image's `alt`
-   * text, which is the only way a screen reader learns who was involved, since
-   * unlike the presenting organisation these names appear in no text on the
-   * page. Required for that reason: a logo with no name is not saved.
-   */
-  name: string;
-};
+export type PartnerLogo = NamedImage;
 
 /** More than this and the row stops being a row. */
 export const MAX_PARTNER_LOGOS = 6;
-
-/** Long enough for "Help the Blind Foundation" and then some. */
-const MAX_NAME_LENGTH = 80;
 
 /** Re-exported so the picker has one import for everything it needs. */
 export { LOGO_CONTENT_TYPES, LOGO_MAX_BYTES };
@@ -46,24 +35,5 @@ export { LOGO_CONTENT_TYPES, LOGO_MAX_BYTES };
  * client component, so what reaches the action is whatever the caller sent.
  */
 export function normalisePartnerLogos(values: readonly PartnerLogo[]): PartnerLogo[] {
-  const seen = new Set<string>();
-  const cleaned: PartnerLogo[] = [];
-
-  for (const value of values ?? []) {
-    const url = typeof value?.url === 'string' ? value.url.trim() : '';
-    const name =
-      typeof value?.name === 'string'
-        ? value.name.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME_LENGTH)
-        : '';
-
-    // Both halves are required. A nameless logo is invisible to a screen
-    // reader, and a name with no logo has nothing to label.
-    if (!url || !name || seen.has(url)) continue;
-
-    seen.add(url);
-    cleaned.push({ url, name });
-    if (cleaned.length === MAX_PARTNER_LOGOS) break;
-  }
-
-  return cleaned;
+  return normaliseNamedImages(values ?? [], MAX_PARTNER_LOGOS);
 }

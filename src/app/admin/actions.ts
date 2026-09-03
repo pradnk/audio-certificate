@@ -24,6 +24,7 @@ import { certificates, events, type ScriptSnapshot } from '@/lib/db/schema';
 import { DEFAULT_LOGO_POSITION, isLogoPosition, type LogoPosition } from '@/lib/logo';
 import { normalisePartnerLogos, type PartnerLogo } from '@/lib/partners';
 import { normalisePrintWording, type PrintWording } from '@/lib/print-wording';
+import { normaliseSignatures, type Signature } from '@/lib/signatures';
 import { normaliseRecipientTypes, type RecipientType } from '@/lib/recipient-types';
 import { buildScript, MissingTemplatesError } from '@/lib/script';
 
@@ -156,6 +157,8 @@ export type EventSettings = {
   certificateLayout: CertificateLayout;
   /** Where the event's name sits on the centred sheet. */
   eventNamePosition: EventNamePosition;
+  /** Scanned signatures printed under the sign-off. See lib/signatures.ts. */
+  signatures: Signature[];
   /** The words on the printed sheet, as opposed to the spoken templates. */
   printWording: PrintWording;
 };
@@ -196,6 +199,9 @@ export async function updateEvent(eventId: string, settings: EventSettings): Pro
       eventNamePosition: isEventNamePosition(settings.eventNamePosition)
         ? settings.eventNamePosition
         : DEFAULT_EVENT_NAME_POSITION,
+      signatures: Array.isArray(settings.signatures)
+        ? normaliseSignatures(settings.signatures)
+        : undefined,
       printWording: normalisePrintWording(settings.printWording),
       updatedAt: new Date(),
     })

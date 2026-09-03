@@ -5,7 +5,7 @@ import { useRef, useState, useTransition } from 'react';
 import { addCertificates, type CertificateInput } from '@/app/admin/actions';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import { SUPPORTED_LANGUAGES, languageLabel } from '@/lib/languages';
-import { IMPORT_COLUMNS, csvTemplate, parseStudentList } from '@/lib/paste-parse';
+import { OPTIONAL_COLUMNS, csvTemplate, parseStudentList } from '@/lib/paste-parse';
 import type { RecipientType } from '@/lib/recipient-types';
 
 export function AddStudents({
@@ -271,17 +271,27 @@ function BulkImport({
       {error && <Alert>{error}</Alert>}
 
       <div className="rounded-lg bg-paper-sunk p-4">
-        <p className="mb-2 font-bold">Columns, in this order:</p>
-        <p className="text-ink-soft">{IMPORT_COLUMNS.join(' · ')}</p>
-        <p className="mt-2 text-ink-soft">
-          A header row is optional — if you include one, the columns can be in any order. Only{' '}
-          <strong>Name</strong> and <strong>Award</strong> are required.
+        <p className="mb-2 font-bold">
+          You need two columns: <span className="whitespace-nowrap">Name</span> and{' '}
+          <span className="whitespace-nowrap">Award</span>.
+        </p>
+        <p className="text-ink-soft">
+          Put those names in the first row and add whichever of these you have — in any order,
+          leaving out the rest: <strong>School</strong> · <strong>City</strong>
+          {types.length > 1 && (
+            <>
+              {' '}
+              · <strong>Type</strong>
+            </>
+          )}{' '}
+          · {OPTIONAL_COLUMNS.join(' · ')}. Any column Taali does not recognise is ignored, so you
+          can usually paste your working sheet as it is.
         </p>
         {types.length > 1 && (
           <p className="mt-2 text-ink-soft">
-            The <strong>Type</strong> column says which group each row is —{' '}
-            {types.map((type) => type.label).join(' or ')}. Leave it out and every row is filed
-            under the group chosen below.
+            <strong>Type</strong> is the one that says which group somebody is in —{' '}
+            {types.map((type) => type.label).join(' or ')}. Leave the column out and every row goes
+            to the group chosen below.
           </p>
         )}
         {awards.length > 0 && (

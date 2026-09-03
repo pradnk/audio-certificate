@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { setEventArchived, updateEvent, type EventSettings } from '@/app/admin/actions';
 import { LogoPicker } from '@/components/logo-picker';
-import { PartnerLogosPicker } from '@/components/partner-logos-picker';
+import { NamedImagePicker } from '@/components/named-image-picker';
 import { WordingTextarea } from '@/components/wording-textarea';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '@/components/ui';
 import {
@@ -16,7 +16,8 @@ import {
 } from '@/lib/certificate-layout';
 import { DEFAULT_AWARDS, type AwardCategory } from '@/lib/awards';
 import type { Event, TemplateSet } from '@/lib/db/schema';
-import { normalisePartnerLogos } from '@/lib/partners';
+import { MAX_PARTNER_LOGOS, normalisePartnerLogos } from '@/lib/partners';
+import { MAX_SIGNATURES, normaliseSignatures } from '@/lib/signatures';
 import { normalisePrintWording, type PrintWording } from '@/lib/print-wording';
 import {
   SPOKEN_FIELDS,
@@ -244,6 +245,7 @@ export function SettingsForm({
     partnerLabel: event.partnerLabel,
     certificateLayout: event.certificateLayout,
     eventNamePosition: event.eventNamePosition,
+    signatures: event.signatures,
     printWording: event.printWording,
   });
 
@@ -287,6 +289,7 @@ export function SettingsForm({
       ...settings,
       recipientTypes: normaliseRecipientTypes(settings.recipientTypes),
       partnerLogos: normalisePartnerLogos(settings.partnerLogos),
+      signatures: normaliseSignatures(settings.signatures),
       partnerLabel: normalisePartnerLabel(settings.partnerLabel),
       printWording: normalisePrintWording(settings.printWording),
     };
@@ -499,14 +502,55 @@ export function SettingsForm({
       </Card>
 
       <Card>
+        <h2 className="mb-2 text-xl font-bold">Signatures</h2>
+        <p className="mb-5 text-ink-soft">
+          Scanned signatures, printed under the sign-off at the bottom left. Two is the usual pair;
+          three is the most that fits. Leave it empty and that space stays clear to sign by hand,
+          which is what it is there for.
+        </p>
+        {settings.certificateLayout !== 'centred' && (
+          <p className="mb-5 rounded-lg border-2 border-focus bg-teal-50 px-4 py-3">
+            <strong>The classic layout has no sign-off to put these under.</strong> They will be
+            saved, and will appear if you switch to the centred layout.
+          </p>
+        )}
+        <NamedImagePicker
+          items={settings.signatures}
+          max={MAX_SIGNATURES}
+          idPrefix="signature"
+          labels={{
+            thing: 'signature',
+            nameLabel: 'Who signed',
+            nameHint:
+              'Never printed. It is what a screen reader reads out in place of the signature, so write it as you would say it — “Meera Nair, Trustee”.',
+            namePlaceholder: 'Meera Nair, Trustee',
+            fileHint:
+              'PNG, JPEG, WebP or SVG, under 2 MB. A scan on a white background, cropped close to the ink, sits best.',
+          }}
+          disabled={archived}
+          onChange={(next) => update('signatures', next)}
+        />
+      </Card>
+
+      <Card>
         <h2 className="mb-2 text-xl font-bold">Other organisations</h2>
         <p className="mb-5 text-ink-soft">
           Anyone running the event alongside you, or supporting it. Their logos appear in a row at
           the foot of the printed certificate and on the certificate page. They are never spoken —
           the recording stays about the person receiving the award.
         </p>
-        <PartnerLogosPicker
-          logos={settings.partnerLogos}
+        <NamedImagePicker
+          items={settings.partnerLogos}
+          max={MAX_PARTNER_LOGOS}
+          idPrefix="partner-logo"
+          labels={{
+            thing: 'logo',
+            nameLabel: 'Organisation',
+            nameHint: 'Never printed. It is what a screen reader reads out in place of the logo.',
+            namePlaceholder: 'Vision Empower',
+            fileHint:
+              'PNG, JPEG, WebP or SVG, under 2 MB. A version with a transparent or white background works best — the certificate is white.',
+          }}
           disabled={archived}
           onChange={(next) => update('partnerLogos', next)}
         />

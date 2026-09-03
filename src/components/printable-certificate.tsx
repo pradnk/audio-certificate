@@ -125,6 +125,35 @@ function ListenBlock({ url, qrDataUrl }: { url: string; qrDataUrl: string }) {
 }
 
 /**
+ * Scanned signatures, under the sign-off.
+ *
+ * They sit in the room the QR code opposite already reserves, so signing a
+ * certificate costs it no height. The count is a data attribute rather than a
+ * class per number, so print.css decides how one, two or three are spaced
+ * without this component knowing anything about millimetres.
+ */
+function Signatures({ event }: { event: Event }) {
+  if (event.signatures.length === 0) return null;
+
+  return (
+    <ul className="certificate-signatures" data-count={event.signatures.length}>
+      {event.signatures.map((signature) => (
+        <li key={signature.url}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary Blob or static URL; next/image cannot participate in a print layout */}
+          <img
+            src={signature.url}
+            /* Named, by the same rule as the supporters: who signed appears in
+               no text on the sheet, so an empty alt would erase them. */
+            alt={signature.name}
+            className="certificate-signature"
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * The presenting organisation's mark.
  *
  * The alt text is the caller's to decide, because the right answer depends on
@@ -347,9 +376,12 @@ function CentredBody({ event, certificate, url, qrDataUrl }: BodyProps) {
         text into a column one word wide.
       */}
       <footer className="certificate-centred-footer">
-        <p className="certificate-centred-signature">
-          <RichText lines={signature} />
-        </p>
+        <div className="certificate-centred-signoff">
+          <p className="certificate-centred-signature">
+            <RichText lines={signature} />
+          </p>
+          <Signatures event={event} />
+        </div>
         <div className="certificate-centred-listen">
           <ListenBlock url={url} qrDataUrl={qrDataUrl} />
         </div>

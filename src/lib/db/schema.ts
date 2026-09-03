@@ -9,6 +9,7 @@ import {
 } from '@/lib/certificate-layout';
 import type { LogoPosition } from '@/lib/logo';
 import type { PartnerLogo } from '@/lib/partners';
+import type { Signature } from '@/lib/signatures';
 import { defaultRecipientTypes, type RecipientType } from '@/lib/recipient-types';
 import type { TemplateSet } from '@/lib/wording';
 import { DEFAULT_PRINT_WORDING, type PrintWording } from '@/lib/print-wording';
@@ -96,6 +97,13 @@ export const events = pgTable('events', {
    * Defaults to the original so that an event which has already handed out
    * certificates keeps printing the same ones.
    */
+  /**
+   * Scanned signatures, printed under the sign-off. See lib/signatures.ts.
+   * Empty by default: an unsigned certificate is the normal case, and the
+   * space they occupy is left clear for a pen when there are none.
+   */
+  signatures: jsonb('signatures').$type<Signature[]>().notNull().default([]),
+
   /** Where the event's name sits on the centred sheet. */
   eventNamePosition: text('event_name_position')
     .$type<EventNamePosition>()
