@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import JSZip from 'jszip';
 
+import { upload } from '@vercel/blob/client';
+
+import { recordCertificatePdf } from '@/app/admin/actions';
 import { Alert, Button } from '@/components/ui';
 import { certificatePdf } from '@/lib/certificate-file';
 import { resolveFileBases } from '@/lib/filename';
+import { sharingCsv, type SharingRow } from '@/lib/sharing-csv';
 
 export type DownloadItem = {
   /** Shown in messages, so somebody knows which one failed. */
@@ -16,6 +20,14 @@ export type DownloadItem = {
    */
   fileBase: string;
   audioUrl: string | null;
+  /**
+   * Present only where a sharing list can be built -- the admin print page.
+   * `id` is what a saved PDF gets recorded against, so it comes with the rest.
+   */
+  sharing?: {
+    id: string;
+    pdfUrl: string | null;
+  } & Omit<SharingRow, 'pdfUrl' | 'audioUrl'>;
 };
 
 /**
@@ -121,8 +133,63 @@ export function CertificateDownloads({
       }
     });
 
+  /**
+   * Saves every certificate as a file with its own link, then hands back the
+   * list that says who gets which.
+   *
+   * Certificates whose PDF is already saved are skipped, so running this again
+   * after adding a few people costs only the few -- which matters at 235, where
+   * a full pass is several minutes of work in the tab.
+   */
+  const list = () =>
+    run('list', async () => {
+      const pages = sheets();
+      const { bases } = resolveFileBases(items);
+      const rows: SharingRow[] = [];
+      let saved = 0;
+
+      for (const [index, item] of items.entries()) {
+        const sharing = item.sharing;
+        if (!sharing) continue;
+
+        let pdfUrl = sharing.pdfUrl;
+        const page = pages[index];
+        if (!pdfUrl && page) {
+          setBusy(`list:${index + 1}`);
+          const blob = await upload(`certificates/${bases[index]}.pdf`, await certificatePdf(page), {
+            access: 'public',
+            handleUploadUrl: '/api/admin/blob-token',
+            contentType: 'application/pdf',
+          });
+          await recordCertificatePdf(sharing.id, blob.url);
+          pdfUrl = blob.url;
+          saved += 1;
+        }
+
+        rows.push({ ...sharing, pdfUrl, audioUrl: item.audioUrl });
+      }
+
+      save(
+        new Blob([sharingCsv(rows)], { type: 'text/csv;charset=utf-8' }),
+        `${zipName}.csv`,
+      );
+
+      const missing = rows.filter((row) => !row.audioUrl).length;
+      if (missing > 0) {
+        setError(
+          `${saved} certificate${saved === 1 ? '' : 's'} saved. ` +
+            `${missing} ${missing === 1 ? 'has' : 'have'} no recording yet, so the Audio MP3 ` +
+            'column is blank for them — make the audio and download the list again.',
+        );
+      }
+    });
+
   const working = busy !== '';
-  const progress = busy.startsWith('all:') ? ` ${busy.slice(4)} of ${items.length}` : '';
+  const progress = busy.startsWith('all:')
+    ? ` ${busy.slice(4)} of ${items.length}`
+    : busy.startsWith('list:')
+      ? ` ${busy.slice(5)} of ${items.length}`
+      : '';
 
   /*
    * Shown before anything is clicked, not after: the fix is a correction to the
@@ -135,11 +202,22 @@ export function CertificateDownloads({
     <div className="print-hide mx-auto flex max-w-4xl flex-col gap-3 px-5 pb-6">
       <div className="flex flex-wrap items-center gap-3">
         {zipName ? (
-          <Button onClick={all} disabled={working || items.length === 0}>
-            {busy.startsWith('all')
-              ? `Building…${progress}`
-              : `Download ${items.length} as files`}
-          </Button>
+          <>
+            <Button onClick={all} disabled={working || items.length === 0}>
+              {busy.startsWith('all')
+                ? `Building…${progress}`
+                : `Download ${items.length} as files`}
+            </Button>
+            {items.some((item) => item.sharing) && (
+              <Button
+                variant="secondary"
+                onClick={list}
+                disabled={working || items.length === 0}
+              >
+                {busy.startsWith('list') ? `Saving…${progress}` : 'Save files and get the list'}
+              </Button>
+            )}
+          </>
         ) : (
           <>
             <Button onClick={() => one(false)} disabled={working}>
@@ -152,7 +230,7 @@ export function CertificateDownloads({
         )}
         <span className="text-ink-soft">
           {zipName
-            ? 'A folder for each person, holding their certificate and their recording. A large event runs to a few hundred megabytes, so give it a minute.'
+            ? 'Files to keep, or a spreadsheet of links to send whoever is handing them out. A large event runs to a few hundred megabytes, so give it a minute.'
             : 'A picture of this certificate, the size of an A4 sheet.'}
         </span>
       </div>

@@ -362,6 +362,8 @@ export async function addCertificates(
         status: 'draft',
         reviewed: false,
         errorMessage: null,
+        // The saved PDF shows the old details, so the link has to go with them.
+        pdfUrl: null,
       })
       .where(eq(certificates.id, match.id));
     updated += 1;
@@ -409,6 +411,8 @@ export async function updateCertificate(
       status: 'draft',
       reviewed: false,
       errorMessage: null,
+      // Whatever was saved for sharing now shows the old details.
+      pdfUrl: null,
     })
     .where(eq(certificates.id, certificateId))
     .returning({ eventId: certificates.eventId });
@@ -458,6 +462,7 @@ export async function updateCertificatesBulk(
       status: 'draft',
       reviewed: false,
       errorMessage: null,
+      pdfUrl: null,
     })
     .where(inArray(certificates.id, ids))
     .returning({ eventId: certificates.eventId });
@@ -465,6 +470,31 @@ export async function updateCertificatesBulk(
   const eventId = rows[0]?.eventId;
   if (eventId) revalidatePath(`/admin/events/${eventId}/students`);
   return { updated: rows.length };
+}
+
+/**
+ * Notes where a certificate's PDF was saved, so it can be handed out as a link.
+ *
+ * Written from the tab that generated it, the same way a finished recording is:
+ * the sheet only exists as a picture once it has been laid out in a browser, so
+ * there is no server-side copy to point at instead.
+ */
+export async function recordCertificatePdf(
+  certificateId: string,
+  pdfUrl: string,
+): Promise<void> {
+  await assertAdmin();
+  // Deliberately not gated on the event being editable. Handing certificates
+  // out is what happens *after* a ceremony is marked complete, and this records
+  // where a copy of an unchanged sheet was saved rather than altering it.
+
+  const [row] = await db()
+    .update(certificates)
+    .set({ pdfUrl })
+    .where(eq(certificates.id, certificateId))
+    .returning({ eventId: certificates.eventId });
+
+  if (row) revalidatePath(`/admin/events/${row.eventId}/students`);
 }
 
 export async function deleteCertificate(certificateId: string): Promise<void> {

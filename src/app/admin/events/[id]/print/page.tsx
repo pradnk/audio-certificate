@@ -9,6 +9,7 @@ import { getEvent, listCertificates } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
 import { certificateFileBase } from '@/lib/filename';
 import { qrDataUrl } from '@/lib/qr';
+import { recipientTypeFor, recipientTypesFor } from '@/lib/recipient-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default async function PrintAllPage({
     .filter(Boolean);
   const rows = only.length > 0 ? all.filter((row) => only.includes(row.id)) : all;
 
+  const types = recipientTypesFor(event);
   const pages = await Promise.all(
     rows.map(async (certificate) => {
       const url = `${origin}/c/${certificate.publicId}`;
@@ -67,7 +69,7 @@ export default async function PrintAllPage({
       />
       {pages.length > 0 && (
         <CertificateDownloads
-          items={pages.map(({ certificate }) => ({
+          items={pages.map(({ certificate, url }) => ({
             name: certificate.studentName,
             fileBase: certificateFileBase(
               event.name,
@@ -75,6 +77,17 @@ export default async function PrintAllPage({
               certificate.school,
             ),
             audioUrl: certificate.status === 'ready' ? certificate.audioUrl : null,
+            sharing: {
+              id: certificate.id,
+              name: certificate.studentName,
+              school: certificate.school ?? '',
+              // Imported under the heading State; held in the city field.
+              state: certificate.city ?? '',
+              award: certificate.award,
+              type: recipientTypeFor(types, certificate.recipientType).label,
+              pageUrl: url,
+              pdfUrl: certificate.pdfUrl,
+            },
           }))}
           zipName={certificateFileBase(event.name, 'certificates')}
         />

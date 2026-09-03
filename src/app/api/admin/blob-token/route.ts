@@ -3,7 +3,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { isAdmin, unauthorized } from '@/lib/auth-server';
 
 /**
- * Signs direct browser-to-Blob uploads for finished certificate MP3s.
+ * Signs direct browser-to-Blob uploads for finished certificate files.
  *
  * The alternative -- POSTing the audio to a function which then forwards it --
  * would push every 700 KB file through a serverless invocation for no benefit.
@@ -29,7 +29,10 @@ export async function POST(request: Request) {
           throw new Error('Uploads are only allowed under certificates/.');
         }
         return {
-          allowedContentTypes: ['audio/mpeg'],
+          // PDFs join the MP3s so that a certificate can be handed to
+          // somebody as a link rather than as an attachment. Both are rendered
+          // in the tab, so both are uploaded from it.
+          allowedContentTypes: ['audio/mpeg', 'application/pdf'],
           addRandomSuffix: true,
           maximumSizeInBytes: 25 * 1024 * 1024,
           cacheControlMaxAge: 31_536_000,

@@ -490,6 +490,40 @@ certificate to a clash you have not got round to fixing.
 The same naming and the same warning apply to **Download all as ZIP**, the
 sound-files-only download.
 
+### Handing the list to whoever distributes them
+
+**Save files and get the list** on the print page gives you a spreadsheet for
+the person doing the distributing — a field officer, a class teacher, whoever is
+actually contacting families. It saves each certificate as a file with its own
+permanent link, then downloads a CSV in **the same shape as the sheet you
+imported**, with the links added on the end:
+
+| Name | School | State | Award | Type | File Location | Certificate PDF | Audio MP3 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Nisha | Ranga Rao Memorial School | Karnataka | First Prize | Student | …/c/x63r8pt797 | …/Curious-Minds-2026-Nisha….pdf | …/Curious-Minds-2026-Nisha….mp3 |
+
+- **File Location** is the recipient's own certificate page — the audio, the
+  words in large print, and a button to download the PDF. One link to send if
+  you are sending only one.
+- **Certificate PDF** and **Audio MP3** are direct links to the two files, for
+  anyone who would rather forward the file itself.
+
+Open it in Excel or Google Sheets, sort by school, and give each officer their
+share. Names in Kannada, Tamil or Devanagari open correctly in Excel.
+
+Certificates already saved are skipped when you run it again, so adding a few
+people later costs only those few rather than another full pass.
+
+> **Change somebody's details and their saved PDF is dropped**, because it now
+> shows the old award. Run **Save files and get the list** again to replace it —
+> otherwise their PDF column comes back blank rather than wrong.
+
+> **The File Location column depends on your site address.** Until
+> `NEXT_PUBLIC_SITE_URL` points at a permanent domain and Deployment Protection
+> is off, that column carries the same broken link as the QR codes — see the
+> warning on the print page. The PDF and MP3 columns work regardless: those
+> files sit on a public file host, not behind the site.
+
 > **A whole event is a big download.** Each certificate is about half a megabyte
 > and each recording about three quarters, so 235 people come to roughly 290 MB
 > and several minutes of work in the browser tab. Leave the tab open and in front
